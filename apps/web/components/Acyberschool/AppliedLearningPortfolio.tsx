@@ -249,7 +249,7 @@ export default function AppliedLearningPortfolio({ orgslug }: { orgslug: string 
 
   const entries = portfolioQuery.data || []
   const summary = summaryQuery.data || { entries: 0, applied: 0, measured: 0, courses: 0 }
-  const courseNames = useMemo(() => new Map((courses || []).map((course: any) => [clean(course.course_uuid), course.name])), [courses])
+  const courseNames = useMemo(() => new Map<string, string>((courses || []).map((course: any) => [clean(course.course_uuid), String(course.name || 'Course')] as [string, string])), [courses])
   const grouped = useMemo(() => {
     const map = new Map<string, AppliedLearningEntry[]>()
     entries.forEach((entry) => {
