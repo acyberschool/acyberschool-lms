@@ -1,68 +1,40 @@
 'use client'
-import { Input } from "@components/ui/input"
-import { Textarea } from "@components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@components/ui/select"
-import FormLayout, {
-  FormField,
-  FormLabelAndMessage,
-} from '@components/Objects/StyledElements/Form/Form'
+
+import { Input } from '@components/ui/input'
+import { Textarea } from '@components/ui/textarea'
+import FormLayout, { FormField, FormLabelAndMessage } from '@components/Objects/StyledElements/Form/Form'
 import * as Form from '@radix-ui/react-form'
 import { createNewCourse } from '@services/courses/courses'
 import { createChapter } from '@services/courses/chapters'
-import { getOrganizationContextInfoWithoutCredentials } from '@services/organizations/orgs'
-import React, { useEffect } from 'react'
+import { createUserGroup, linkResourcesToUserGroup } from '@services/usergroups/usergroups'
+import React from 'react'
 import { BarLoader } from 'react-spinners'
 import { revalidateTags } from '@services/utils/ts/requests'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '@/lib/query/keys'
 import { useLHSession } from '@components/Contexts/LHSessionContext'
+import { useOrg } from '@components/Contexts/OrgContext'
 import toast from 'react-hot-toast'
 import { useFormik } from 'formik'
 import * as Yup from 'yup'
-import {  UploadCloud, Image as ImageIcon, Clipboard } from 'lucide-react'
-import UnsplashImagePicker from "@components/Dashboard/Pages/Course/EditCourseGeneral/UnsplashImagePicker"
-import AIImageButton from '@components/Objects/AI/AIImageButton'
-import FormTagInput from "@components/Objects/StyledElements/Form/TagInput"
-import { useTranslation } from "react-i18next"
+import { LockKeyhole, UploadCloud } from 'lucide-react'
+import FormTagInput from '@components/Objects/StyledElements/Form/TagInput'
 import { useLHAnalytics, AnalyticsEvent } from '@services/analytics'
-import { useUpgradeModal } from '@components/Dashboard/Shared/PlanRestricted/UpgradeModalContext'
-
-const _validationSchema = Yup.object().shape({
-  name: Yup.string()
-    .required('Course name is required')
-    .max(100, 'Must be 100 characters or less'),
-  description: Yup.string()
-    .max(1000, 'Must be 1000 characters or less'),
-  learnings: Yup.string(),
-  tags: Yup.string(),
-  visibility: Yup.boolean(),
-  thumbnail: Yup.mixed().nullable()
-})
 
 function CreateCourseModal({ closeModal, orgslug }: any) {
-  const { t } = useTranslation()
   const { track } = useLHAnalytics('dashboard')
   const router = useRouter()
   const session = useLHSession() as any
+  const org = useOrg() as any
   const queryClient = useQueryClient()
-  const [orgId, setOrgId] = React.useState(null) as any
-  const [showUnsplashPicker, setShowUnsplashPicker] = React.useState(false)
-  const [isUploading, setIsUploading] = React.useState(false)
-  // A free org that hits its course limit gets the shared upgrade paywall.
-  const { handlePlanLimit } = useUpgradeModal()
 
   const validationSchema = Yup.object().shape({
-    name: Yup.string()
-      .required(t('courses.course_name_required'))
-      .max(100, 'Must be 100 characters or less'),
-    description: Yup.string()
-      .required(t('courses.course_description_required'))
-      .max(1000, 'Must be 1000 characters or less'),
+    name: Yup.string().required('Course name is required').max(100),
+    description: Yup.string().required('Course description is required').max(1000),
     learnings: Yup.string(),
     tags: Yup.string(),
-    visibility: Yup.boolean(),
-    thumbnail: Yup.mixed().nullable()
+    thumbnail: Yup.mixed().nullable(),
   })
 
   const formik = useFormik({
@@ -70,320 +42,204 @@ function CreateCourseModal({ closeModal, orgslug }: any) {
       name: '',
       description: '',
       learnings: '',
-      visibility: true,
       tags: '',
-      thumbnail: null
+      thumbnail: null,
     },
     validationSchema,
     onSubmit: async (values, { setSubmitting }) => {
-      const toast_loading = toast.loading(t('courses.creating_course'))
+      const token = session.data?.tokens?.access_token
+      if (!org?.id || !token) {
+        toast.error('Your admin session is still loading. Please try again.')
+        setSubmitting(false)
+        return
+      }
 
+      const loadingToast = toast.loading('Creating your private course...')
       try {
         const res = await createNewCourse(
-          orgId,
+          org.id,
           {
             name: values.name,
             description: values.description,
             learnings: values.learnings,
             tags: values.tags,
-            visibility: values.visibility
+            visibility: false,
           },
           values.thumbnail,
-          session.data?.tokens?.access_token
+          token
         )
 
-        if (res.success) {
-          const thumbnailFile = values.thumbnail as File | null
-          track(AnalyticsEvent.CourseCreated, {
-            thumbnail_source: thumbnailFile
-              ? thumbnailFile.name === 'unsplash_image.jpg'
-                ? 'unsplash'
-                : 'upload'
-              : 'none',
-            visibility: values.visibility ? 'public' : 'private',
-            has_learnings: !!values.learnings?.trim(),
-          })
-          // Create a default first chapter so the new course isn't empty.
-          // Never let a failure here block course creation.
-          try {
-            await createChapter(
-              {
-                name: t('courses.first_chapter_default_name', { defaultValue: 'First Chapter' }),
-                description: '',
-                thumbnail_image: '',
-                course_id: res.data.id,
-                org_id: res.data.org_id ?? orgId,
-              },
-              session.data?.tokens?.access_token
+        if (!res.success) {
+          throw new Error(typeof res.data?.detail === 'string' ? res.data.detail : 'Course creation failed')
+        }
+
+        const course = res.data
+        const courseUuid = course.course_uuid
+        const courseId = courseUuid?.replace('course_', '') || courseUuid
+        const courseOrgId = course.org_id ?? org.id
+
+        try {
+          await createChapter(
+            {
+              name: 'First Chapter',
+              description: '',
+              thumbnail_image: '',
+              course_id: course.id,
+              org_id: courseOrgId,
+            },
+            token
+          )
+        } catch {
+          // The course remains valid if this convenience step fails.
+        }
+
+        let accessGroupLinked = false
+        try {
+          const groupResult = await createUserGroup(
+            {
+              name: `${values.name} Learners`,
+              description: `Learner access for ${values.name}`,
+              org_id: courseOrgId,
+            },
+            token
+          )
+
+          if (groupResult.status === 200 && groupResult.data?.id) {
+            const linkResult = await linkResourcesToUserGroup(
+              groupResult.data.id,
+              courseUuid,
+              courseOrgId,
+              token
             )
-          } catch (_chapterError) {
-            // Ignore: the default chapter is a convenience, not a requirement.
+            accessGroupLinked = linkResult.status === 200
           }
+        } catch (error) {
+          console.error('Could not create automatic course access group', error)
+        }
 
-          await revalidateTags(['courses'], orgslug)
-          // Refresh sidebar courses cache
-          queryClient.invalidateQueries({ queryKey: queryKeys.courses.list(orgslug) })
-          toast.dismiss(toast_loading)
-          toast.success(t('courses.course_created_success'))
+        track(AnalyticsEvent.CourseCreated, {
+          thumbnail_source: values.thumbnail ? 'upload' : 'none',
+          visibility: 'private',
+          has_learnings: !!values.learnings?.trim(),
+        })
 
-          closeModal()
-          // Redirect straight to the Content tab and auto-open the "add activity"
-          // popup so a brand-new course lands the teacher on the core creation
-          // action (their first activity) instead of an empty settings page.
-          const courseId = res.data.course_uuid?.replace('course_', '') || res.data.course_uuid
+        await revalidateTags(['courses'], orgslug)
+        queryClient.invalidateQueries({ queryKey: queryKeys.courses.list(orgslug) })
+        queryClient.invalidateQueries({ queryKey: queryKeys.usergroups.list(org.id) })
+        toast.dismiss(loadingToast)
+        closeModal()
+
+        if (accessGroupLinked) {
+          toast.success('Private course created. Add content, then add learners to its access group.')
           router.push(`/dash/courses/course/${courseId}/content?new_activity=1`)
         } else {
-          toast.dismiss(toast_loading)
-          const detail = typeof res.data?.detail === 'string' ? res.data.detail : ''
-          // A free org that has hit its course limit gets a contextual upgrade
-          // paywall at the moment of value, instead of a dead-end error toast.
-          if (handlePlanLimit(res, { source: 'course_create', feature: 'courses', requiredPlan: 'standard' })) {
-            closeModal()
-          } else {
-            const errorMessage = detail
-              ? detail
-              : Array.isArray(res.data?.detail)
-                ? res.data.detail.map((e: any) => e.msg).join(', ')
-                : t('courses.failed_to_create_course')
-            toast.error(errorMessage)
-          }
+          toast('Course created safely. Link a learner group before publishing.', { icon: '🔒' })
+          router.push(`/dash/courses/course/${courseId}/access`)
         }
-      } catch (_error) {
-        toast.error(t('courses.failed_to_create_course'))
+      } catch (error: any) {
+        toast.error(error?.message || 'Failed to create course', { id: loadingToast })
       } finally {
         setSubmitting(false)
       }
-    }
+    },
   })
 
-  const getOrgMetadata = async () => {
-    const org = await getOrganizationContextInfoWithoutCredentials(orgslug, {
-      revalidate: 360,
-      tags: ['organizations'],
-    })
-    setOrgId(org.id)
-  }
-
-  useEffect(() => {
-    if (orgslug) {
-      getOrgMetadata()
-    }
-  }, [orgslug])
-
-  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
-    if (file) {
-      formik.setFieldValue('thumbnail', file)
-    }
-  }
-
-  const handleUnsplashSelect = async (imageUrl: string) => {
-    setIsUploading(true)
-    try {
-      const response = await fetch(imageUrl)
-      const blob = await response.blob()
-      const file = new File([blob], 'unsplash_image.jpg', { type: 'image/jpeg' })
-      formik.setFieldValue('thumbnail', file)
-    } catch (_error) {
-      toast.error('Failed to load image from Unsplash')
-    }
-    setIsUploading(false)
-  }
-
-  const handleAIImageFile = async (file: File) => {
-    formik.setFieldValue('thumbnail', file)
-  }
-
-  const handlePasteFromClipboard = async () => {
-    try {
-      const clipboardItems = await navigator.clipboard.read()
-      for (const clipboardItem of clipboardItems) {
-        const imageTypes = clipboardItem.types.filter(type => type.startsWith('image/'))
-        if (imageTypes.length > 0) {
-          const imageType = imageTypes[0]
-          const blob = await clipboardItem.getType(imageType)
-          // The API derives the stored extension from the filename, so it must
-          // match the blob's actual type (browsers may hand back jpeg/webp/gif).
-          const extensionByType: Record<string, string> = {
-            'image/jpeg': 'jpg',
-            'image/png': 'png',
-            'image/gif': 'gif',
-            'image/webp': 'webp',
-          }
-          const extension = extensionByType[imageType] ?? 'png'
-          const file = new File([blob], `clipboard_image.${extension}`, { type: imageType })
-          formik.setFieldValue('thumbnail', file)
-          return
-        }
-      }
-      toast.error(t('courses.no_image_in_clipboard', { defaultValue: 'No image found in clipboard' }))
-    } catch (_) {
-      toast.error(t('courses.clipboard_read_error', { defaultValue: 'Failed to read from clipboard' }))
-    }
+    if (file) formik.setFieldValue('thumbnail', file)
   }
 
   return (
-    <FormLayout onSubmit={formik.handleSubmit} >
+    <FormLayout onSubmit={formik.handleSubmit}>
+      <div className="mb-5 rounded-xl border border-[#C51635]/15 bg-[#C51635]/[0.04] p-4">
+        <div className="flex items-start gap-3">
+          <LockKeyhole className="mt-0.5 h-5 w-5 text-[#C51635]" />
+          <div>
+            <div className="font-bold text-gray-900">Assigned learners only</div>
+            <p className="mt-1 text-sm leading-5 text-gray-500">
+              Every Acyberschool course is private. A learner access group is created automatically. Only people you add to that group can open the course.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <FormField name="name">
-        <FormLabelAndMessage
-          label={t('courses.course_name')}
-          message={formik.errors.name}
-        />
+        <FormLabelAndMessage label="Course name" message={formik.errors.name} />
         <Form.Control asChild>
-          <Input
-            onChange={formik.handleChange}
-            value={formik.values.name}
-            type="text"
-            required
-          />
+          <Input name="name" onChange={formik.handleChange} value={formik.values.name} required />
         </Form.Control>
       </FormField>
 
       <FormField name="description">
-        <FormLabelAndMessage
-          label={t('library.description')}
-          message={formik.errors.description}
-        />
+        <FormLabelAndMessage label="Description" message={formik.errors.description} />
         <Form.Control asChild>
-          <Textarea
-            onChange={formik.handleChange}
-            value={formik.values.description}
-            required
-          />
+          <Textarea name="description" onChange={formik.handleChange} value={formik.values.description} required />
         </Form.Control>
       </FormField>
 
       <FormField name="thumbnail">
-        <FormLabelAndMessage
-          label={t('courses.course_thumbnail')}
-          message={formik.errors.thumbnail}
-        />
-        <div className="w-auto bg-gray-50 rounded-xl outline outline-1 outline-gray-200 h-[200px] shadow-sm">
-          <div className="flex flex-col justify-center items-center h-full">
-            <div className="flex flex-col justify-center items-center">
-              {formik.values.thumbnail ? (
-                <img
-                  src={URL.createObjectURL(formik.values.thumbnail)}
-                  className={`${isUploading ? 'animate-pulse' : ''} shadow-sm w-[200px] h-[100px] rounded-md`}
-                />
-              ) : (
-                <img
-                  src="/empty_thumbnail.png"
-                  className="shadow-sm w-[200px] h-[100px] rounded-md bg-gray-200"
-                />
-              )}
-              <div className="flex justify-center items-center space-x-2">
-                <input
-                  type="file"
-                  id="fileInput"
-                  style={{ display: 'none' }}
-                  onChange={handleFileChange}
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                />
-                <button
-                  type="button"
-                  className="font-bold antialiased items-center text-gray text-sm rounded-md px-4 mt-6 flex"
-                  onClick={() => document.getElementById('fileInput')?.click()}
-                >
-                  <UploadCloud size={16} className="me-2" />
-                  <span>{t('courses.upload_image')}</span>
-                </button>
-                <button
-                  type="button"
-                  className="font-bold antialiased items-center text-gray text-sm rounded-md px-4 mt-6 flex"
-                  onClick={() => setShowUnsplashPicker(true)}
-                >
-                  <ImageIcon size={16} className="me-2" />
-                  <span>{t('courses.choose_from_gallery')}</span>
-                </button>
-                <button
-                  type="button"
-                  className="font-bold antialiased items-center text-gray text-sm rounded-md px-4 mt-6 flex"
-                  onClick={handlePasteFromClipboard}
-                >
-                  <Clipboard size={16} className="me-2" />
-                  <span>{t('courses.paste_from_clipboard')}</span>
-                </button>
-                <AIImageButton
-                  onSelect={handleUnsplashSelect}
-                  onSelectFile={handleAIImageFile}
-                  className="font-bold antialiased items-center text-gray text-sm rounded-md px-4 mt-6 flex gap-2"
-                />
-              </div>
+        <FormLabelAndMessage label="Course image" message={formik.errors.thumbnail} />
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+          {formik.values.thumbnail ? (
+            <img
+              src={URL.createObjectURL(formik.values.thumbnail as File)}
+              className="mb-4 h-32 w-full rounded-lg object-cover"
+              alt="Course thumbnail preview"
+            />
+          ) : (
+            <div className="mb-4 flex h-28 items-center justify-center rounded-lg bg-white text-sm text-gray-400">
+              Add a course image if you have one
             </div>
-          </div>
+          )}
+          <input
+            type="file"
+            id="acyberschool-course-thumbnail"
+            className="hidden"
+            onChange={handleFileChange}
+            accept="image/jpeg,image/png,image/webp,image/gif"
+          />
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
+            onClick={() => document.getElementById('acyberschool-course-thumbnail')?.click()}
+          >
+            <UploadCloud size={16} />
+            Upload image
+          </button>
         </div>
       </FormField>
 
-			<FormField name="learnings">
-				<FormLabelAndMessage
-					label={t('courses.course_learnings')}
-					message={formik.errors.learnings}
-				/>
-				<FormTagInput
-					placeholder={t('courses.enter_to_add')}
-					value={formik.values.learnings}
-					onChange={(value) => formik.setFieldValue('learnings', value)}
-					error={formik.errors.learnings}
-				/>
-			</FormField>
-
-			<FormField name="tags">
-				<FormLabelAndMessage
-					label={t('courses.course_tags')}
-					message={formik.errors.tags}
-				/>
-				<FormTagInput
-					placeholder={t('courses.enter_to_add')}
-					value={formik.values.tags}
-					onChange={(value) => formik.setFieldValue('tags', value)}
-					error={formik.errors.tags}
-				/>
-			</FormField>
-
-      <FormField name="visibility">
-        <FormLabelAndMessage
-          label={t('courses.course_visibility')}
-          message={formik.errors.visibility}
+      <FormField name="learnings">
+        <FormLabelAndMessage label="What will learners achieve?" message={formik.errors.learnings} />
+        <FormTagInput
+          placeholder="Type a learning outcome and press Enter"
+          value={formik.values.learnings}
+          onChange={(value) => formik.setFieldValue('learnings', value)}
+          error={formik.errors.learnings}
         />
-        <Select
-          value={formik.values.visibility.toString()}
-          onValueChange={(value) => formik.setFieldValue('visibility', value === 'true')}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder={t('courses.select_visibility')} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">{t('courses.public')} ({t('courses.public_desc')})</SelectItem>
-            <SelectItem value="false">{t('courses.private')} ({t('courses.private_desc')})</SelectItem>
-          </SelectContent>
-        </Select>
       </FormField>
 
-      <div className="flex justify-end mt-6">
-        <button
-          type="submit"
-          disabled={formik.isSubmitting}
-          className="px-4 py-2 bg-black text-white text-sm font-bold rounded-md"
-        >
-          {formik.isSubmitting ? (
-            <BarLoader
-              cssOverride={{ borderRadius: 60 }}
-              width={60}
-              color="#ffffff"
-            />
-          ) : (
-            t('courses.create_course_btn')
-          )}
-        </button>
-      </div>
-
-      {showUnsplashPicker && (
-        <UnsplashImagePicker
-          onSelect={handleUnsplashSelect}
-          onClose={() => setShowUnsplashPicker(false)}
+      <FormField name="tags">
+        <FormLabelAndMessage label="Tags" message={formik.errors.tags} />
+        <FormTagInput
+          placeholder="Optional tags"
+          value={formik.values.tags}
+          onChange={(value) => formik.setFieldValue('tags', value)}
+          error={formik.errors.tags}
         />
-      )}
+      </FormField>
+
+      <div className="mt-6 flex justify-end">
+        <Form.Submit asChild>
+          <button
+            type="submit"
+            disabled={formik.isSubmitting}
+            className="min-w-36 rounded-lg bg-black px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {formik.isSubmitting ? <BarLoader width={70} color="#ffffff" /> : 'Create private course'}
+          </button>
+        </Form.Submit>
+      </div>
     </FormLayout>
   )
 }
