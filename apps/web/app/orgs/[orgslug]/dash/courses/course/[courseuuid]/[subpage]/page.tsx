@@ -1,9 +1,9 @@
 'use client'
-import React, { use, useEffect } from 'react';
+import React, { use, useEffect } from 'react'
 import { CourseProvider } from '../../../../../../../../components/Contexts/CourseContext'
 import { CourseOverviewTop } from '@components/Dashboard/Misc/CourseOverviewTop'
 import { motion } from 'motion/react'
-import { GalleryVerticalEnd, Globe, Info, UserPen, Award, Lock, Search } from 'lucide-react'
+import { GalleryVerticalEnd, Globe, Info, UserPen, Award, Lock, Search, PanelsTopLeft } from 'lucide-react'
 import { ChartBar } from '@phosphor-icons/react'
 import EditCourseStructure from '@components/Dashboard/Pages/Course/EditCourseStructure/EditCourseStructure'
 import EditCourseGeneral from '@components/Dashboard/Pages/Course/EditCourseGeneral/EditCourseGeneral'
@@ -11,14 +11,15 @@ import EditCourseAccess from '@components/Dashboard/Pages/Course/EditCourseAcces
 import EditCourseContributors from '@components/Dashboard/Pages/Course/EditCourseContributors/EditCourseContributors'
 import EditCourseCertification from '@components/Dashboard/Pages/Course/EditCourseCertification/EditCourseCertification'
 import EditCourseSEO from '@components/Dashboard/Pages/Course/EditCourseSEO/EditCourseSEO'
+import EditCourseStorefront from '@components/Dashboard/Pages/Course/EditCourseStorefront/EditCourseStorefront'
 import { useCourseRights } from '@hooks/useCourseRights'
 import { useRouter } from 'next/navigation'
-import { getUriWithOrg } from '@services/config/config';
-import { useTranslation } from 'react-i18next';
-import { PlanLevel } from '@services/plans/plans';
-import FeatureGate from '@components/Dashboard/Shared/FeatureGate/FeatureGate';
-import CourseAnalyticsTab from '@components/Dashboard/Analytics/Course/CourseAnalyticsTab';
-import { DashTabBar, DashTabItem } from '@components/Dashboard/Shared/DashTabBar/DashTabBar';
+import { getUriWithOrg } from '@services/config/config'
+import { useTranslation } from 'react-i18next'
+import { PlanLevel } from '@services/plans/plans'
+import FeatureGate from '@components/Dashboard/Shared/FeatureGate/FeatureGate'
+import CourseAnalyticsTab from '@components/Dashboard/Analytics/Course/CourseAnalyticsTab'
+import { DashTabBar, DashTabItem } from '@components/Dashboard/Shared/DashTabBar/DashTabBar'
 
 export type CourseOverviewParams = {
   orgslug: string
@@ -28,46 +29,51 @@ export type CourseOverviewParams = {
 
 function CourseOverviewPage(props: { params: Promise<CourseOverviewParams> }) {
   const { t } = useTranslation()
-  const params = use(props.params);
-  const router = useRouter();
+  const params = use(props.params)
+  const router = useRouter()
 
   function getEntireCourseUUID(courseuuid: string) {
-    // add course_ to uuid
     return `course_${courseuuid}`
   }
 
   const courseuuid = getEntireCourseUUID(params.courseuuid)
   const { hasPermission, isLoading: rightsLoading } = useCourseRights(courseuuid)
 
-  // Define tab configurations with their required permissions
   const tabs = [
     {
       key: 'general',
       label: t('dashboard.courses.settings.tabs.general'),
       icon: Info,
       href: `/dash/courses/course/${params.courseuuid}/general`,
-      requiredPermission: 'update' as const
+      requiredPermission: 'update' as const,
     },
     {
       key: 'content',
       label: t('dashboard.courses.settings.tabs.content'),
       icon: GalleryVerticalEnd,
       href: `/dash/courses/course/${params.courseuuid}/content`,
-      requiredPermission: 'update_content' as const
+      requiredPermission: 'update_content' as const,
+    },
+    {
+      key: 'landing',
+      label: 'Landing page',
+      icon: PanelsTopLeft,
+      href: `/dash/courses/course/${params.courseuuid}/landing`,
+      requiredPermission: 'update' as const,
     },
     {
       key: 'access',
       label: t('dashboard.courses.settings.tabs.access'),
       icon: Globe,
       href: `/dash/courses/course/${params.courseuuid}/access`,
-      requiredPermission: 'manage_access' as const
+      requiredPermission: 'manage_access' as const,
     },
     {
       key: 'contributors',
       label: t('dashboard.courses.settings.tabs.contributors'),
       icon: UserPen,
       href: `/dash/courses/course/${params.courseuuid}/contributors`,
-      requiredPermission: 'manage_contributors' as const
+      requiredPermission: 'manage_contributors' as const,
     },
     {
       key: 'seo',
@@ -75,7 +81,7 @@ function CourseOverviewPage(props: { params: Promise<CourseOverviewParams> }) {
       icon: Search,
       href: `/dash/courses/course/${params.courseuuid}/seo`,
       requiredPermission: 'update' as const,
-      requiresPlan: 'standard' as PlanLevel
+      requiresPlan: 'standard' as PlanLevel,
     },
     {
       key: 'certification',
@@ -83,7 +89,7 @@ function CourseOverviewPage(props: { params: Promise<CourseOverviewParams> }) {
       icon: Award,
       href: `/dash/courses/course/${params.courseuuid}/certification`,
       requiredPermission: 'create_certifications' as const,
-      requiresPlan: 'pro' as PlanLevel
+      requiresPlan: 'pro' as PlanLevel,
     },
     {
       key: 'analytics',
@@ -91,18 +97,14 @@ function CourseOverviewPage(props: { params: Promise<CourseOverviewParams> }) {
       icon: ChartBar,
       href: `/dash/courses/course/${params.courseuuid}/analytics`,
       requiredPermission: 'update' as const,
-      requiresPlan: 'pro' as PlanLevel
-    }
+      requiresPlan: 'pro' as PlanLevel,
+    },
   ]
 
-  // Filter tabs based on permissions
-  const visibleTabs = tabs.filter(tab => hasPermission(tab.requiredPermission))
-
-  // Check if current subpage is accessible
-  const currentTab = tabs.find(tab => tab.key === params.subpage)
+  const visibleTabs = tabs.filter((tab) => hasPermission(tab.requiredPermission))
+  const currentTab = tabs.find((tab) => tab.key === params.subpage)
   const hasAccessToCurrentPage = currentTab ? hasPermission(currentTab.requiredPermission) : false
 
-  // Redirect to first available tab if current page is not accessible
   useEffect(() => {
     if (!rightsLoading && !hasAccessToCurrentPage && visibleTabs.length > 0) {
       const firstAvailableTab = visibleTabs[0]
@@ -110,7 +112,6 @@ function CourseOverviewPage(props: { params: Promise<CourseOverviewParams> }) {
     }
   }, [rightsLoading, hasAccessToCurrentPage, visibleTabs, router, params.orgslug])
 
-  // Access denied (rights loaded but no tabs visible)
   if (!rightsLoading && visibleTabs.length === 0) {
     return (
       <div className="h-screen w-full bg-[#f8f8f8] flex items-center justify-center">
@@ -123,9 +124,6 @@ function CourseOverviewPage(props: { params: Promise<CourseOverviewParams> }) {
     )
   }
 
-  // CourseProvider is always rendered so course meta fetches IN PARALLEL with rights —
-  // no sequential waterfall. The tab content is gated by hasPermission() which returns
-  // false (safe default) until rights finish loading.
   return (
     <div className="h-screen w-full bg-[#f8f8f8] grid grid-rows-[auto_1fr] grid-cols-1">
       <CourseProvider courseuuid={courseuuid} withUnpublishedActivities={true}>
@@ -169,19 +167,22 @@ function CourseOverviewPage(props: { params: Promise<CourseOverviewParams> }) {
                 <div className="h-32 bg-gray-200 rounded w-full max-w-2xl mt-6" />
               </div>
             ) : null}
-            {!rightsLoading && params.subpage == 'content' && hasPermission('update_content') ? (
+            {!rightsLoading && params.subpage === 'content' && hasPermission('update_content') ? (
               <EditCourseStructure orgslug={params.orgslug} />
             ) : null}
-            {!rightsLoading && params.subpage == 'general' && hasPermission('update') ? (
+            {!rightsLoading && params.subpage === 'general' && hasPermission('update') ? (
               <EditCourseGeneral orgslug={params.orgslug} />
             ) : null}
-            {!rightsLoading && params.subpage == 'access' && hasPermission('manage_access') ? (
+            {!rightsLoading && params.subpage === 'landing' && hasPermission('update') ? (
+              <EditCourseStorefront />
+            ) : null}
+            {!rightsLoading && params.subpage === 'access' && hasPermission('manage_access') ? (
               <EditCourseAccess orgslug={params.orgslug} />
             ) : null}
-            {!rightsLoading && params.subpage == 'contributors' && hasPermission('manage_contributors') ? (
+            {!rightsLoading && params.subpage === 'contributors' && hasPermission('manage_contributors') ? (
               <EditCourseContributors orgslug={params.orgslug} />
             ) : null}
-            {!rightsLoading && params.subpage == 'seo' && hasPermission('update') ? (
+            {!rightsLoading && params.subpage === 'seo' && hasPermission('update') ? (
               <>
                 <div className="h-6" />
                 <FeatureGate feature="seo">
@@ -189,7 +190,7 @@ function CourseOverviewPage(props: { params: Promise<CourseOverviewParams> }) {
                 </FeatureGate>
               </>
             ) : null}
-            {!rightsLoading && params.subpage == 'certification' && hasPermission('create_certifications') ? (
+            {!rightsLoading && params.subpage === 'certification' && hasPermission('create_certifications') ? (
               <>
                 <div className="h-6" />
                 <FeatureGate feature="certifications">
@@ -197,7 +198,7 @@ function CourseOverviewPage(props: { params: Promise<CourseOverviewParams> }) {
                 </FeatureGate>
               </>
             ) : null}
-            {!rightsLoading && params.subpage == 'analytics' && hasPermission('update') ? (
+            {!rightsLoading && params.subpage === 'analytics' && hasPermission('update') ? (
               <FeatureGate feature="course_analytics">
                 <CourseAnalyticsTab courseUUID={courseuuid} />
               </FeatureGate>
