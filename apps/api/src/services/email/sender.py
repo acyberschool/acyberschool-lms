@@ -22,8 +22,10 @@ import re
 from email.utils import formataddr
 from typing import Optional
 
-# Platform fallback used when neither the org nor the deployment names a sender.
-DEFAULT_SENDER_NAME = "LearnHouse"
+# Acyberschool platform fallback used when an organization does not provide a
+# tenant-specific display name. The authenticated address remains the shared
+# platform sender configured in mailing.system_email_address.
+DEFAULT_SENDER_NAME = "Acyberschool"
 
 # Long enough for a real organization name, short enough that the header stays
 # readable in every client's inbox list. Mirrored by the dashboard's character
