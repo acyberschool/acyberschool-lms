@@ -28,7 +28,6 @@ from src.db.user_organizations import UserOrganization
 from src.db.users import APITokenUser, PublicUser, SuperadminAPITokenUser
 from src.security.auth import get_authenticated_user, get_current_user
 from src.security.rbac import AccessAction, check_resource_access
-from src.security.rbac.constants import ADMIN_ROLE_ID
 from src.security.superadmin import is_user_superadmin
 from src.security.features_utils.usage import check_limits_with_usage, increase_feature_usage
 
@@ -395,7 +394,10 @@ async def stripe_course_webhook(
     if event.get("type") == "checkout.session.completed":
         session = event.get("data", {}).get("object", {})
         metadata = session.get("metadata") or {}
-        if metadata.get("purchase_type") == "acyberschool_course":
+        if (
+            metadata.get("purchase_type") == "acyberschool_course"
+            and session.get("payment_status") == "paid"
+        ):
             try:
                 user_id = int(metadata["user_id"])
                 course = await _get_course(metadata["course_uuid"], db_session)
