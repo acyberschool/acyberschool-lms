@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 from typing import Union
+from urllib.parse import urlparse
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field as PydanticField
 from sqlalchemy import func
 from sqlmodel import select, col
@@ -15,13 +16,18 @@ from src.db.applied_learning import (
     AppliedLearningEntry,
     AppliedLearningEntryRead,
 )
+from src.db.learning_attachments import LearningAttachment, LearningAttachmentRead
 from src.db.courses.activities import Activity
 from src.db.courses.courses import Course
+from src.db.organizations import Organization
 from src.db.users import AnonymousUser, PublicUser
 from src.security.auth import get_current_user
 from src.security.org_auth import is_org_member
+from src.services.utils.upload_content import upload_file
 
 router = APIRouter()
+
+_ALLOWED_ATTACHMENT_CONTEXTS = {"portfolio", "capstone"}
 
 
 def now_iso() -> str:
@@ -69,6 +75,34 @@ async def validate_learning_context(
     return course, activity
 
 
+async def validate_attachment_context(
+    user: PublicUser,
+    org_id: int,
+    context_type: str,
+    context_uuid: str,
+    db_session: AsyncSession,
+) -> None:
+    if context_type not in _ALLOWED_ATTACHMENT_CONTEXTS:
+        raise HTTPException(status_code=400, detail="Unsupported attachment context")
+    await require_org_membership(user, org_id, db_session)
+
+    if context_type == "portfolio":
+        statement = select(AppliedLearningEntry).where(
+            AppliedLearningEntry.entry_uuid == context_uuid,
+            AppliedLearningEntry.user_id == user.id,
+            AppliedLearningEntry.org_id == org_id,
+        )
+    else:
+        statement = select(AppliedLearningCapstone).where(
+            AppliedLearningCapstone.capstone_uuid == context_uuid,
+            AppliedLearningCapstone.user_id == user.id,
+            AppliedLearningCapstone.org_id == org_id,
+        )
+
+    if (await db_session.execute(statement)).scalars().first() is None:
+        raise HTTPException(status_code=404, detail="Learning work not found")
+
+
 class SaveReflectionRequest(BaseModel):
     org_id: int
     course_uuid: str
@@ -93,6 +127,14 @@ class SaveCapstoneRequest(BaseModel):
     selected_entry_uuids: list[str] = []
     status: str = "draft"
     capstone_uuid: str | None = None
+
+
+class AddLearningLinkRequest(BaseModel):
+    org_id: int
+    context_type: str
+    context_uuid: str
+    url: str = PydanticField(min_length=8, max_length=2048)
+    label: str = PydanticField(default="", max_length=300)
 
 
 @router.get("/reflection/{activity_uuid}", response_model=AppliedLearningEntryRead | None)
@@ -292,3 +334,104 @@ async def save_capstone(
     await db_session.commit()
     await db_session.refresh(capstone)
     return AppliedLearningCapstoneRead.model_validate(capstone)
+
+
+@router.post("/attachments/file", response_model=LearningAttachmentRead)
+async def upload_learning_attachment(
+    org_id: int,
+    context_type: str,
+    context_uuid: str,
+    file: UploadFile,
+    current_user: Union[PublicUser, AnonymousUser] = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Upload a scanned Word, PDF, Excel or PowerPoint file to learner work."""
+    user = require_user(current_user)
+    context_type = context_type.strip().lower()
+    await validate_attachment_context(user, org_id, context_type, context_uuid, db_session)
+
+    org = (await db_session.execute(select(Organization).where(Organization.id == org_id))).scalars().first()
+    if org is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    directory = f"learner-attachments/{user.id}/{context_type}/{context_uuid}"
+    stored_name = await upload_file(
+        file=file,
+        directory=directory,
+        type_of_dir="orgs",
+        uuid=org.org_uuid,
+        allowed_types=["document", "office", "office_legacy"],
+        filename_prefix="learning",
+        max_size=100 * 1024 * 1024,
+    )
+
+    attachment = LearningAttachment(
+        attachment_uuid=f"attachment_{uuid4()}",
+        user_id=user.id,
+        org_id=org_id,
+        context_type=context_type,
+        context_uuid=context_uuid,
+        kind="file",
+        original_name=file.filename or "file",
+        stored_name=stored_name,
+        public_path=f"/content/orgs/{org.org_uuid}/{directory}/{stored_name}",
+        scan_status="clean",
+    )
+    db_session.add(attachment)
+    await db_session.commit()
+    await db_session.refresh(attachment)
+    return LearningAttachmentRead.model_validate(attachment)
+
+
+@router.post("/attachments/link", response_model=LearningAttachmentRead)
+async def add_learning_link(
+    body: AddLearningLinkRequest,
+    current_user: Union[PublicUser, AnonymousUser] = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    """Attach an http(s) link without server-side fetching it."""
+    user = require_user(current_user)
+    context_type = body.context_type.strip().lower()
+    await validate_attachment_context(user, body.org_id, context_type, body.context_uuid, db_session)
+
+    parsed = urlparse(body.url.strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise HTTPException(status_code=400, detail="Enter a valid http or https link")
+
+    attachment = LearningAttachment(
+        attachment_uuid=f"attachment_{uuid4()}",
+        user_id=user.id,
+        org_id=body.org_id,
+        context_type=context_type,
+        context_uuid=body.context_uuid,
+        kind="link",
+        original_name=body.label.strip() or parsed.netloc,
+        external_url=body.url.strip(),
+        scan_status="clean",
+    )
+    db_session.add(attachment)
+    await db_session.commit()
+    await db_session.refresh(attachment)
+    return LearningAttachmentRead.model_validate(attachment)
+
+
+@router.get("/attachments", response_model=list[LearningAttachmentRead])
+async def list_learning_attachments(
+    org_id: int,
+    context_type: str,
+    context_uuid: str,
+    current_user: Union[PublicUser, AnonymousUser] = Depends(get_current_user),
+    db_session: AsyncSession = Depends(get_db_session),
+):
+    user = require_user(current_user)
+    context_type = context_type.strip().lower()
+    await validate_attachment_context(user, org_id, context_type, context_uuid, db_session)
+
+    statement = select(LearningAttachment).where(
+        LearningAttachment.user_id == user.id,
+        LearningAttachment.org_id == org_id,
+        LearningAttachment.context_type == context_type,
+        LearningAttachment.context_uuid == context_uuid,
+    ).order_by(col(LearningAttachment.created_at).desc())
+    items = (await db_session.execute(statement)).scalars().all()
+    return [LearningAttachmentRead.model_validate(item) for item in items]
