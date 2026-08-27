@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowSquareOut, Code2, Eye, Plus, Save, Trash2 } from 'lucide-react'
+import { ExternalLink, Code2, Eye, Plus, Save, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import { useCourse } from '@components/Contexts/CourseContext'
@@ -149,7 +149,7 @@ export default function EditCourseStorefront() {
             rel="noreferrer"
             className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-black text-[#0B263D]"
           >
-            <Eye className="h-4 w-4" /> Preview <ArrowSquareOut className="h-3.5 w-3.5" />
+            <Eye className="h-4 w-4" /> Preview <ExternalLink className="h-3.5 w-3.5" />
           </a>
           <button
             type="button"
