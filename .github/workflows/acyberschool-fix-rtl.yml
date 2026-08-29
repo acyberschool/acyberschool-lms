@@ -1,0 +1,42 @@
+name: Acyberschool one time RTL lint repair
+
+on:
+  push:
+    branches:
+      - fix/acyberschool-media-branding-tenancy
+    paths:
+      - ".github/workflows/acyberschool-fix-rtl.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/acyberschool-media-branding-tenancy
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+      - name: Install web dependencies
+        run: bun install --frozen-lockfile
+        working-directory: ./apps/web
+      - name: Convert Acyberschool physical direction utilities
+        run: bun scripts/codemod-logical.mjs --include 'components/Acyberschool/' --write
+        working-directory: ./apps/web
+      - name: Verify patch integrity
+        run: git diff --check
+      - name: Commit lint repair
+        run: |
+          if git diff --quiet -- apps/web/components/Acyberschool; then
+            echo "No Acyberschool RTL changes were required."
+            exit 0
+          fi
+          git config user.name "acyberschool-release-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add apps/web/components/Acyberschool
+          git commit -m "Fix Acyberschool RTL lint violations"
+          git push origin HEAD:fix/acyberschool-media-branding-tenancy
