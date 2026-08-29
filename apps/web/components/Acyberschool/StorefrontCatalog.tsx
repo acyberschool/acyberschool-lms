@@ -40,7 +40,7 @@ function CourseCard({ course }: { course: StoreCourse }) {
               <BookOpen className="h-8 w-8 text-white/70" />
             </div>
           )}
-          <span className="absolute right-3 top-3 rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#101418] shadow-sm">
+          <span className="absolute end-3 top-3 rounded-full bg-white px-3 py-1.5 text-xs font-black text-[#101418] shadow-sm">
             {priceLabel(course)}
           </span>
         </div>

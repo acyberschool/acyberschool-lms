@@ -135,12 +135,12 @@ function AttachmentPanel({
 
       <div className="mt-3 flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
-          <Link2 className="absolute left-3 top-3.5 h-4 w-4 text-black/30" />
+          <Link2 className="absolute start-3 top-3.5 h-4 w-4 text-black/30" />
           <input
             value={link}
             onChange={(event) => setLink(event.target.value)}
             placeholder="Paste a link"
-            className="min-h-11 w-full rounded-xl border border-black/10 bg-white pl-10 pr-3 text-sm outline-none"
+            className="min-h-11 w-full rounded-xl border border-black/10 bg-white ps-10 pe-3 text-sm outline-none"
           />
         </div>
         <button
@@ -309,11 +309,11 @@ function CapstoneBuilder({ entries, orgId, existing, onSaved }: { entries: Appli
         <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: RED }}>Choose the proof</p>
         <h3 className="mt-2 text-xl font-black">Portfolio entries</h3>
         <p className="mt-2 text-sm leading-6 text-black/50">Select the applications that tell the strongest story.</p>
-        <div className="mt-5 max-h-[480px] space-y-2 overflow-y-auto pr-1">
+        <div className="mt-5 max-h-[480px] space-y-2 overflow-y-auto pe-1">
           {entries.map((entry) => {
             const checked = selected.includes(entry.entry_uuid)
             return (
-              <button key={entry.entry_uuid} onClick={() => setSelected(checked ? selected.filter((id) => id !== entry.entry_uuid) : [...selected, entry.entry_uuid])} className={`w-full rounded-2xl border p-3 text-left transition ${checked ? 'border-[#C51635]/30 bg-[#C51635]/[0.045]' : 'border-black/[0.07] bg-white'}`}>
+              <button key={entry.entry_uuid} onClick={() => setSelected(checked ? selected.filter((id) => id !== entry.entry_uuid) : [...selected, entry.entry_uuid])} className={`w-full rounded-2xl border p-3 text-start transition ${checked ? 'border-[#C51635]/30 bg-[#C51635]/[0.045]' : 'border-black/[0.07] bg-white'}`}>
                 <div className="flex gap-3">
                   <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${checked ? 'border-[#C51635] bg-[#C51635] text-white' : 'border-black/20'}`}>{checked && <Check className="h-3 w-3" />}</span>
                   <div className="min-w-0">
@@ -462,7 +462,7 @@ export default function AppliedLearningPortfolio({ orgslug }: { orgslug: string 
                 const isOpen = openCourse === null || openCourse === courseUuid
                 return (
                   <section key={courseUuid} className="overflow-hidden rounded-[24px] border border-black/[0.08] bg-white">
-                    <button onClick={() => setOpenCourse(isOpen && openCourse !== null ? null : courseUuid)} className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-6">
+                    <button onClick={() => setOpenCourse(isOpen && openCourse !== null ? null : courseUuid)} className="flex w-full items-center justify-between gap-4 px-5 py-5 text-start sm:px-6">
                       <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B263D] text-white"><Layers3 className="h-5 w-5" /></span><div><p className="text-lg font-black">{courseNames.get(courseUuid) || 'Course'}</p><p className="text-xs text-black/45">{courseEntries.length} applied learning {courseEntries.length === 1 ? 'entry' : 'entries'}</p></div></div>
                       <ChevronDown className={`h-5 w-5 text-black/35 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
