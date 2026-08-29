@@ -40,7 +40,6 @@ from src.security.rbac.dependencies import (
     CommunityAccess,
 )
 import src.security.rbac.dependencies as _rbac_dependencies
-_rbac_dependencies.ResourceAccessChecker = ResourceAccessChecker
 
 from src.security.rbac.rbac import (
     check_usergroup_access,
@@ -67,6 +66,8 @@ from src.security.rbac.constants import (
     is_admin_or_maintainer,
     has_elevated_privileges,
 )
+
+_rbac_dependencies.ResourceAccessChecker = ResourceAccessChecker
 
 __all__ = [
     "AccessAction",
