@@ -6,10 +6,33 @@ import {
   getResponseMetadata,
 } from '@services/utils/ts/requests'
 
-/*
- This file includes only POST, PUT, DELETE requests
- GET requests are called from the frontend using SWR (https://swr.vercel.app/)
-*/
+/**
+ * Acyberschool is assignment-based: a learner should never see a paid course
+ * merely because it exists in the same organization. The API's direct course
+ * access policy is authoritative; this helper uses that same check to remove
+ * inaccessible cards from learner lists and search results.
+ */
+async function filterToAssignedCourses(courses: any, next: any, access_token?: any) {
+  if (!Array.isArray(courses)) return courses
+  if (!access_token) return []
+
+  const checked = await Promise.all(
+    courses.map(async (course: any) => {
+      if (!course?.course_uuid) return null
+      try {
+        const result = await fetch(
+          `${getAPIUrl()}courses/${course.course_uuid}/meta?slim=true`,
+          RequestBodyWithAuthHeader('GET', null, next, access_token)
+        )
+        return result.ok ? course : null
+      } catch {
+        return null
+      }
+    })
+  )
+
+  return checked.filter(Boolean)
+}
 
 export async function getOrgCourses(
   org_slug: string,
@@ -23,7 +46,11 @@ export async function getOrgCourses(
     RequestBodyWithAuthHeader('GET', null, next, access_token)
   )
   const res = await errorHandling(result)
-  return res
+
+  // Dashboard/admin views ask explicitly for unpublished courses and should
+  // retain the complete management list. Learner views only receive courses
+  // that pass the explicit Acyberschool enrollment check.
+  return include_unpublished ? res : filterToAssignedCourses(res, next, access_token)
 }
 
 export async function searchOrgCourses(
@@ -39,7 +66,7 @@ export async function searchOrgCourses(
     RequestBodyWithAuthHeader('GET', null, next, access_token)
   )
   const res = await errorHandling(result)
-  return res
+  return filterToAssignedCourses(res, next, access_token)
 }
 
 export async function getCourseMetadata(
@@ -104,11 +131,12 @@ export async function createNewCourse(
   thumbnail: any,
   access_token: any
 ) {
-  // Send file thumbnail as form data
   const formData = new FormData()
   formData.append('name', course_body.name || '')
   formData.append('description', course_body.description || '')
-  formData.append('public', course_body.visibility)
+  // Acyberschool courses are never created public. Learner access is explicit
+  // via the automatically linked course UserGroup.
+  formData.append('public', 'false')
   formData.append('learnings', course_body.learnings || '')
   formData.append('tags', course_body.tags || '')
   formData.append('about', course_body.description || '')
@@ -161,6 +189,15 @@ export async function editContributor(course_uuid: string, contributor_id: strin
   return res
 }
 
+export async function removeContributor(course_uuid: string, contributor_id: string, access_token:string | null | undefined) {
+  const result: any = await fetch(
+    `${getAPIUrl()}courses/${course_uuid}/contributors/${contributor_id}`,
+    RequestBodyWithAuthHeader('DELETE', null, null,access_token || undefined)
+  )
+  const res = await getResponseMetadata(result)
+  return res
+}
+
 export async function applyForContributor(course_uuid: string, data: any, access_token:string | null | undefined) {
   const result: any = await fetch(
     `${getAPIUrl()}courses/${course_uuid}/apply-contributor`,
@@ -191,7 +228,7 @@ export async function bulkRemoveContributors(course_uuid: string, data: any, acc
 export async function getCourseRights(course_uuid: string, access_token: string | null | undefined) {
   const result: any = await fetch(
     `${getAPIUrl()}courses/${course_uuid}/rights`,
-    RequestBodyWithAuthHeader('GET', null, null, access_token || undefined)
+    RequestBodyWithAuthHeader('GET', null, null,access_token || undefined)
   )
   const res = await errorHandling(result)
   return res
