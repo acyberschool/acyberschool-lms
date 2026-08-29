@@ -61,7 +61,23 @@ def run_ee_startup(app):
         hooks.on_startup(app)
 
 def is_multi_org_allowed() -> bool:
-    """Check if multi-org mode is allowed (requires EE or SaaS)."""
+    """Return whether this deployment may create more than one organization.
+
+    Acyberschool's hosted LMS is deliberately able to run multi-tenant without
+    requiring the optional upstream EE package. Multi-tenancy must still be an
+    explicit deployment choice: ``LEARNHOUSE_TENANCY=multi`` (or the equivalent
+    hosting_config setting) enables it. Existing EE/SaaS deployments retain
+    their previous behaviour.
+    """
+    try:
+        from config.config import get_learnhouse_config
+        if get_learnhouse_config().hosting_config.tenancy == "multi":
+            return True
+    except Exception as exc:
+        # Configuration errors are surfaced by normal startup/config loading.
+        # Do not accidentally grant multi-org creation when config is invalid.
+        logger.debug("Unable to resolve tenancy while checking multi-org access: %s", exc)
+
     from src.core.deployment_mode import get_deployment_mode
     mode = get_deployment_mode()
     return mode in ('ee', 'saas')
@@ -77,4 +93,3 @@ async def check_ee_activity_paid_access(request, activity_id, user, db_session) 
         return await hooks.check_activity_paid_access(request, activity_id, user, db_session)
     # If EE is not available, grant access (free tier behavior)
     return True
-

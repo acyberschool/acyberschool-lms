@@ -1,5 +1,5 @@
-site_name: LearnHouse
-site_description: LearnHouse is an open-source platform tailored for learning experiences.
+site_name: Acyberschool
+site_description: Acyberschool learning platform.
 contact_email: hello@learnhouse.app
 
 # This config is optimized for local development. You can change the values according to your needs.
@@ -48,7 +48,11 @@ hosting_config:
 
 mailing_config:
   email_provider: "resend" # "resend" or "smtp"
-  system_email_address: ""
+  # Acyberschool's single authenticated sending address. Organizations may
+  # customize the display name, not the address, so SPF/DKIM alignment remains
+  # on the platform domain across every tenant.
+  system_email_address: "noreply@acyberschool.com"
+  system_email_sender_name: "Acyberschool"
   resend_api_key: ""
   smtp_host: ""
   smtp_port: 587

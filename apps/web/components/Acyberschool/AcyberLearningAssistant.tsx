@@ -189,7 +189,7 @@ export default function AcyberLearningAssistant() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-20 left-4 z-[70] flex min-h-12 items-center gap-2 rounded-full px-4 py-3 text-sm font-extrabold text-white shadow-[0_12px_35px_rgba(11,38,61,0.24)] md:bottom-7 md:left-7"
+        className="fixed bottom-20 start-4 z-[70] flex min-h-12 items-center gap-2 rounded-full px-4 py-3 text-sm font-extrabold text-white shadow-[0_12px_35px_rgba(11,38,61,0.24)] md:bottom-7 md:start-7"
         style={{ backgroundColor: NAVY }}
       >
         <Sparkles className="h-4 w-4 text-[#FF6E87]" />
@@ -294,7 +294,7 @@ export default function AcyberLearningAssistant() {
                   <p className="mt-2 text-sm leading-6 text-white/65">I can explain the lesson, give examples, challenge your thinking and help you turn the concept into a practical action.</p>
                   <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {suggestions.map((suggestion) => (
-                      <button key={suggestion} onClick={() => send(suggestion)} className="rounded-xl border border-white/15 bg-white/[0.06] px-3 py-3 text-left text-xs font-bold text-white hover:bg-white/[0.1]">{suggestion}</button>
+                      <button key={suggestion} onClick={() => send(suggestion)} className="rounded-xl border border-white/15 bg-white/[0.06] px-3 py-3 text-start text-xs font-bold text-white hover:bg-white/[0.1]">{suggestion}</button>
                     ))}
                   </div>
                 </div>

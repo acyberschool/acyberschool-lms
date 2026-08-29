@@ -1,14 +1,16 @@
 'use client'
-import React, { useState, useEffect } from 'react'
+
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { queryKeys } from '@/lib/query/keys'
-import { getAPIUrl, getDeploymentMode } from '@services/config/config'
-import { useLHSession } from '@components/Contexts/LHSessionContext'
-import { X, Buildings } from '@phosphor-icons/react'
+import { Buildings, X } from '@phosphor-icons/react'
 
-function slugify(s: string): string {
-  return s
+import { useLHSession } from '@components/Contexts/LHSessionContext'
+import { getAPIUrl } from '@services/config/config'
+import { RequestBodyWithAuthHeader, errorHandling } from '@services/utils/ts/requests'
+
+function slugify(value: string) {
+  return value
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
@@ -16,215 +18,109 @@ function slugify(s: string): string {
     .slice(0, 64)
 }
 
-export default function CreateOrganizationModal({
-  open,
-  onClose,
-}: {
-  open: boolean
-  onClose: () => void
-}) {
+export default function CreateOrganizationModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const session = useLHSession() as any
-  const accessToken = session?.data?.tokens?.access_token
+  const token = session?.data?.tokens?.access_token as string | undefined
   const queryClient = useQueryClient()
   const router = useRouter()
-  const isSaaS = getDeploymentMode() === 'saas'
-
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
   const [email, setEmail] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
   const [description, setDescription] = useState('')
-  const [plan, setPlan] = useState<string>('free')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (open) {
-      setName('')
-      setSlug('')
-      setSlugTouched(false)
-      setEmail('')
-      setDescription('')
-      setPlan('free')
-      setError('')
-      setSubmitting(false)
-    }
+    if (!open) return
+    setName('')
+    setSlug('')
+    setSlugTouched(false)
+    setEmail('')
+    setAdminEmail('')
+    setDescription('')
+    setSubmitting(false)
+    setError('')
   }, [open])
-
-  useEffect(() => {
-    if (!slugTouched) setSlug(slugify(name))
-  }, [name, slugTouched])
 
   if (!open) return null
 
-  const canSubmit = name.trim().length > 0 && slug.trim().length > 0 && email.trim().length > 0 && !submitting
-
-  const handleSubmit = async () => {
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault()
     setSubmitting(true)
     setError('')
     try {
-      const body: Record<string, unknown> = {
-        name: name.trim(),
-        slug: slug.trim(),
-        email: email.trim(),
-      }
-      if (description.trim()) body.description = description.trim()
-      if (isSaaS) body.plan = plan
-
-      const res = await fetch(`${getAPIUrl()}ee/superadmin/organizations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) {
-        setError(data?.detail || `Failed to create organization (${res.status})`)
-        return
-      }
-      queryClient.invalidateQueries({ queryKey: queryKeys.superadmin.orgs() })
+      const response = await fetch(
+        `${getAPIUrl()}platform/organizations`,
+        RequestBodyWithAuthHeader('POST', {
+          name,
+          slug,
+          email,
+          description: description || null,
+          admin_email: adminEmail || null,
+        }, null, token)
+      )
+      const created = await errorHandling(response)
+      await queryClient.invalidateQueries({ queryKey: ['platform-organizations'] })
       onClose()
-      if (data?.id) router.push(`/admin/organizations/${data.id}`)
-    } catch {
-      setError('Network error')
+      router.push(`/admin/organizations/${created.id}`)
+    } catch (err: any) {
+      setError(err?.message || 'Could not create this institution.')
     } finally {
       setSubmitting(false)
     }
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md bg-[#141415] border border-white/[0.08] rounded-2xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
-          <div className="flex items-center gap-2.5">
-            <Buildings size={18} weight="fill" className="text-white/70" />
-            <h2 className="text-base font-semibold text-white">New organization</h2>
+    <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50 sm:items-center sm:p-5">
+      <div className="max-h-[94vh] w-full overflow-y-auto rounded-t-[28px] bg-white sm:max-w-xl sm:rounded-[28px]">
+        <div className="sticky top-0 flex items-center justify-between border-b border-black/[0.07] bg-white px-5 py-4 sm:px-7">
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B263D] text-white"><Buildings size={20} /></span>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#C51635]">Acyberschool operator</p>
+              <h2 className="text-xl font-black">Create institution</h2>
+            </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-white/40 hover:text-white/80 transition-colors"
-            aria-label="Close"
-          >
-            <X size={18} weight="bold" />
-          </button>
+          <button type="button" onClick={onClose} className="rounded-full p-2 text-black/40 hover:bg-black/[0.04]" aria-label="Close"><X size={18} /></button>
         </div>
 
-        <div className="px-6 py-5 space-y-4">
-          <Field label="Name" required>
-            <input
-              autoFocus
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Acme Learning"
-              className="w-full bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30"
-            />
-          </Field>
+        <form onSubmit={submit} className="space-y-5 p-5 sm:p-7">
+          <label className="block text-sm font-bold">Institution name
+            <input required minLength={2} value={name} onChange={(e) => { setName(e.target.value); if (!slugTouched) setSlug(slugify(e.target.value)) }} className="mt-2 min-h-12 w-full rounded-xl border border-black/10 px-4 font-normal outline-none" />
+          </label>
 
-          <Field
-            label="Slug"
-            required
-            hint="Lowercase, hyphens — used in the org URL."
-          >
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) => {
-                setSlugTouched(true)
-                setSlug(slugify(e.target.value))
-              }}
-              placeholder="acme-learning"
-              className="w-full bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 font-mono"
-            />
-          </Field>
+          <label className="block text-sm font-bold">Classroom address
+            <div className="mt-2 flex min-h-12 items-center rounded-xl border border-black/10 bg-[#FAFAFA] px-4">
+              <input required value={slug} onChange={(e) => { setSlugTouched(true); setSlug(slugify(e.target.value)) }} className="min-w-0 flex-1 bg-transparent font-normal outline-none" />
+              <span className="shrink-0 text-xs text-black/40">.classroom.acyberschool.com</span>
+            </div>
+          </label>
 
-          <Field label="Email" required>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@acme.com"
-              className="w-full bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30"
-            />
-          </Field>
+          <label className="block text-sm font-bold">Institution contact email
+            <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 min-h-12 w-full rounded-xl border border-black/10 px-4 font-normal outline-none" />
+          </label>
 
-          <Field label="Description">
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional"
-              rows={2}
-              className="w-full bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 resize-none"
-            />
-          </Field>
+          <label className="block text-sm font-bold">Institution administrator
+            <input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@institution.org" className="mt-2 min-h-12 w-full rounded-xl border border-black/10 px-4 font-normal outline-none" />
+            <span className="mt-1.5 block text-xs font-normal text-black/40">If this person already has an Acyberschool account they are assigned immediately.</span>
+          </label>
 
-          {isSaaS && (
-            <Field label="Plan">
-              <select
-                value={plan}
-                onChange={(e) => setPlan(e.target.value)}
-                className="w-full bg-white/[0.04] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-white/30"
-              >
-                <option value="free">Free</option>
-                <option value="standard">Standard</option>
-                <option value="pro">Pro</option>
-                <option value="enterprise">Enterprise</option>
-              </select>
-            </Field>
-          )}
+          <label className="block text-sm font-bold">Description
+            <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className="mt-2 w-full rounded-xl border border-black/10 p-4 font-normal outline-none" />
+          </label>
 
-          {error && (
-            <p className="text-sm text-red-400">{error}</p>
-          )}
-        </div>
+          {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p>}
 
-        <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-white/[0.06]">
-          <button
-            onClick={onClose}
-            disabled={submitting}
-            className="px-3.5 py-2 text-sm text-white/60 hover:text-white/90 transition-colors disabled:opacity-40"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="px-3.5 py-2 bg-white/10 hover:bg-white/15 text-white text-sm rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {submitting ? 'Creating…' : 'Create organization'}
-          </button>
-        </div>
+          <div className="flex justify-end gap-3 border-t border-black/[0.06] pt-5">
+            <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-black/10 px-5 text-sm font-bold">Cancel</button>
+            <button disabled={submitting} type="submit" className="min-h-11 rounded-xl bg-[#C51635] px-5 text-sm font-black text-white disabled:opacity-60">
+              {submitting ? 'Creating' : 'Create institution'}
+            </button>
+          </div>
+        </form>
       </div>
-    </div>
-  )
-}
-
-function Field({
-  label,
-  required,
-  hint,
-  children,
-}: {
-  label: string
-  required?: boolean
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <label className="text-xs text-white/50 uppercase tracking-wider block mb-1.5">
-        {label} {required && <span className="text-red-400/70">*</span>}
-      </label>
-      {children}
-      {hint && <p className="text-[11px] text-white/30 mt-1">{hint}</p>}
     </div>
   )
 }

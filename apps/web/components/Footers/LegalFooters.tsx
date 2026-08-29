@@ -1,4 +1,5 @@
 'use client'
+// Acyberschool production legal footer.
 import React from 'react'
 import Link from 'next/link'
 import { useTranslation } from 'react-i18next'
