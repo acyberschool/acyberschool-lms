@@ -9,6 +9,8 @@ from src.routers import health
 from src.routers import demo as demo_router_module
 from src.routers import instance
 from src.routers import plans
+from src.routers import platform_admin
+from src.routers import storefront
 from src.routers import usergroups
 from src.routers import dev, trail, users, auth, orgs, roles, search
 from src.routers import mfa as mfa_router_module
@@ -92,6 +94,21 @@ v1_router.include_router(
 v1_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 # Two-factor: enrollment/management plus the /auth/login/mfa challenge.
 v1_router.include_router(mfa_router_module.router, prefix="/auth", tags=["auth"])
+
+# Acyberschool's native operator control plane. Authorization is enforced by
+# the router itself and is intentionally independent of the optional EE package.
+v1_router.include_router(
+    platform_admin.router,
+    prefix="/platform",
+    tags=["platform-admin"],
+)
+# Public course catalogue, learner enrollment, checkout and resume endpoints.
+v1_router.include_router(
+    storefront.router,
+    prefix="/store",
+    tags=["storefront"],
+)
+
 v1_router.include_router(
     orgs.router,
     prefix="/orgs",

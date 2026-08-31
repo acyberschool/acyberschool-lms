@@ -1,30 +1,43 @@
 import type { Metadata } from 'next'
 import AdminProviders from './providers'
 import React from 'react'
-import { fetchInstanceMode, isSuperadminSurfaceBlocked } from '@lib/eeGate'
+import { getServerAPIUrl } from '@services/config/config'
 import EERequiredScreen from '@components/Security/EERequiredScreen'
 
-// The gate is resolved per request. An ISR-cached result would outlive a
-// licence change, and this layout is what decides whether /admin exists.
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: {
-    template: '%s | LearnHouse Admin',
-    default: 'LearnHouse Admin',
+    template: '%s | Acyberschool Admin',
+    default: 'Acyberschool Admin',
   },
 }
 
-// Wraps everything under /admin, including /admin/login, which sits outside
-// the (dashboard) route group and was previously ungated. Returning the screen
-// here short-circuits AdminProviders, so OSS never bootstraps a session or
-// renders the login form.
+async function platformAdminAvailable(): Promise<boolean> {
+  try {
+    const res = await fetch(`${getServerAPIUrl()}instance/info`, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(4000),
+    })
+    if (!res.ok) return true
+    const info = await res.json()
+    // Native Acyberschool multi tenancy has its own superadmin API and does not
+    // require the optional upstream EE package.
+    if (info?.tenancy === 'multi') return true
+    return info?.mode === 'saas' || info?.mode === 'ee'
+  } catch {
+    // Fail open here for availability. Every operator API call still performs
+    // the authoritative server side is_superadmin check.
+    return true
+  }
+}
+
 export default async function AdminRootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  if (isSuperadminSurfaceBlocked(await fetchInstanceMode())) {
+  if (!(await platformAdminAvailable())) {
     return <EERequiredScreen />
   }
 

@@ -7,29 +7,33 @@ import { getServerAPIUrl } from '@services/config/config'
 // group with random 404s for the revalidate window.
 export const dynamic = 'force-dynamic'
 
-// Root org-management hub (create / upgrade / delete orgs, billing, account).
-//
-// SaaS-only in principle: in oss/ee the billing + org-lifecycle surface does
-// not exist. The proxy already restricts these paths to `multi` tenancy, so we
-// FAIL OPEN here: only 404 when the backend DEFINITIVELY reports a non-saas
-// deployment (mode === 'oss' | 'ee'). On a fetch error, non-ok response, or
-// missing mode we render the children rather than caching a flaky 404.
-async function getInstanceMode(): Promise<string | null> {
+interface InstanceSurface {
+  mode: string | null
+  tenancy: 'multi' | 'single' | null
+}
+
+// Acyberschool deliberately supports native multi tenancy without requiring
+// the optional upstream EE package. The hub therefore exists whenever the
+// backend reports tenancy=multi, regardless of whether mode is saas/ee/oss.
+async function getInstanceSurface(): Promise<InstanceSurface> {
   try {
     const res = await fetch(`${getServerAPIUrl()}instance/info`, {
       cache: 'no-store',
       signal: AbortSignal.timeout(4000),
     })
-    if (!res.ok) return null
+    if (!res.ok) return { mode: null, tenancy: null }
     const info = await res.json()
-    return typeof info?.mode === 'string' ? info.mode : null
+    return {
+      mode: typeof info?.mode === 'string' ? info.mode : null,
+      tenancy: info?.tenancy === 'multi' || info?.tenancy === 'single' ? info.tenancy : null,
+    }
   } catch {
-    return null
+    return { mode: null, tenancy: null }
   }
 }
 
 export default async function HubLayout({ children }: { children: ReactNode }) {
-  const mode = await getInstanceMode()
-  if (mode === 'oss' || mode === 'ee') notFound()
+  const surface = await getInstanceSurface()
+  if (surface.tenancy === 'single' && (surface.mode === 'oss' || surface.mode === 'ee')) notFound()
   return <>{children}</>
 }

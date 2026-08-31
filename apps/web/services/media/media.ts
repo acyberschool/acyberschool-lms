@@ -1,17 +1,54 @@
 import { getBackendUrl, getConfig } from '@services/config/config'
 
+/**
+ * Browser-facing media must stay on the same public origin as the LMS.
+ *
+ * In production the configured backend/media URL can legitimately be an
+ * internal Docker or private-network address. Returning that address to an
+ * <img>, <video>, <audio> or document viewer works on the host machine but is
+ * unreachable from phones and other computers. It also breaks organization
+ * custom domains. Nginx already proxies /content and /api/v1 on every public
+ * host, so production media URLs should be relative to that host.
+ *
+ * Local development is the exception because the Next.js dev server and API
+ * commonly run on different ports without Nginx in front of them.
+ */
+function isLocalHostname(hostname: string) {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, '')
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1'
+}
+
+function shouldUseSameOrigin() {
+  if (typeof window !== 'undefined') {
+    return !isLocalHostname(window.location.hostname)
+  }
+
+  // Server-rendered image URLs must also be safe for the browser. Runtime
+  // config provides the public LMS domain in production.
+  const configuredDomain = getConfig('NEXT_PUBLIC_LEARNHOUSE_DOMAIN')
+    .replace(/^https?:\/\//, '')
+    .split('/')[0]
+    .split(':')[0]
+
+  return Boolean(configuredDomain) && !isLocalHostname(configuredDomain)
+}
+
 function getMediaUrl() {
-  const raw = getConfig('NEXT_PUBLIC_LEARNHOUSE_MEDIA_URL') || getBackendUrl();
+  if (shouldUseSameOrigin()) return '/'
+
+  const raw = getConfig('NEXT_PUBLIC_LEARNHOUSE_MEDIA_URL') || getBackendUrl()
   // Guarantee a trailing slash so callers can concatenate "content/..." without
   // producing "https://api.example.iocontent/..." when the base lacks a slash.
-  return raw.endsWith('/') ? raw : `${raw}/`;
+  return raw.endsWith('/') ? raw : `${raw}/`
 }
 
 function getApiUrl() {
+  if (shouldUseSameOrigin()) return '/'
+
   // Normalize so URL building is correct whether or not the configured backend
   // URL carries a trailing slash (otherwise we'd get "...ioapi/v1/...").
-  const base = getBackendUrl();
-  return base.endsWith('/') ? base : `${base}/`;
+  const base = getBackendUrl()
+  return base.endsWith('/') ? base : `${base}/`
 }
 
 /**

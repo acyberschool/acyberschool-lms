@@ -2,24 +2,41 @@
 
 import React, { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { BriefcaseBusiness, Check, ChevronDown, FileText, Layers3, Plus, Save, Target, TrendingUp, X } from 'lucide-react'
+import {
+  BriefcaseBusiness,
+  Check,
+  ChevronDown,
+  FileCheck2,
+  Layers3,
+  Link2,
+  Paperclip,
+  Save,
+  Target,
+  TrendingUp,
+  Upload,
+  X,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 import { useOrg } from '@components/Contexts/OrgContext'
 import { useLHSession } from '@components/Contexts/LHSessionContext'
 import { useCourses } from '@/hooks/queries/useCourses'
 import {
+  addLearningLink,
   getAppliedLearningSummary,
+  getLearningAttachments,
   getMyAppliedLearning,
   getMyCapstones,
   saveAppliedLearningReflection,
   saveCapstone,
+  uploadLearningAttachment,
   type AppliedLearningCapstone,
   type AppliedLearningEntry,
 } from '@services/applied-learning/appliedLearning'
 
 const RED = '#C51635'
 const NAVY = '#0B263D'
+const FILE_ACCEPT = '.doc,.docx,.pdf,.xls,.xlsx,.ppt,.pptx'
 
 function clean(value?: string) {
   return (value || '').replace('course_', '').replace('activity_', '')
@@ -35,6 +52,132 @@ function statusLabel(status: string) {
   if (status === 'measured') return 'Measured change'
   if (status === 'applied') return 'Applied'
   return 'Planned'
+}
+
+function AttachmentPanel({
+  orgId,
+  contextType,
+  contextUuid,
+}: {
+  orgId: number
+  contextType: 'portfolio' | 'capstone'
+  contextUuid: string
+}) {
+  const session = useLHSession() as any
+  const queryClient = useQueryClient()
+  const token = session?.data?.tokens?.access_token as string | undefined
+  const [uploading, setUploading] = useState(false)
+  const [link, setLink] = useState('')
+  const [addingLink, setAddingLink] = useState(false)
+
+  const queryKey = ['learning-attachments', orgId, contextType, contextUuid]
+  const attachmentsQuery = useQuery({
+    queryKey,
+    queryFn: () => getLearningAttachments(orgId, contextType, contextUuid, token),
+    enabled: Boolean(orgId && contextUuid && token),
+  })
+
+  const refresh = () => queryClient.invalidateQueries({ queryKey })
+
+  const onFile = async (file?: File) => {
+    if (!file || !token) return
+    setUploading(true)
+    try {
+      await uploadLearningAttachment(orgId, contextType, contextUuid, file, token)
+      await refresh()
+      toast.success('File scanned and attached.')
+    } catch (error: any) {
+      toast.error(error?.message || 'The file could not be attached.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const onLink = async () => {
+    if (!link.trim() || !token) return
+    setAddingLink(true)
+    try {
+      await addLearningLink(orgId, contextType, contextUuid, link.trim(), '', token)
+      setLink('')
+      await refresh()
+      toast.success('Link attached.')
+    } catch (error: any) {
+      toast.error(error?.message || 'The link could not be attached.')
+    } finally {
+      setAddingLink(false)
+    }
+  }
+
+  const attachments = attachmentsQuery.data || []
+
+  return (
+    <div className="rounded-2xl border border-black/[0.08] bg-[#FAFAFA] p-4">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <p className="text-sm font-black">Files and links</p>
+          <p className="mt-1 text-xs leading-5 text-black/45">Word, PDF, Excel and PowerPoint files are security scanned before they are stored.</p>
+        </div>
+        <label className="inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-xs font-black">
+          <Upload className="h-4 w-4" /> {uploading ? 'Scanning...' : 'Upload file'}
+          <input
+            type="file"
+            accept={FILE_ACCEPT}
+            className="sr-only"
+            disabled={uploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              void onFile(file)
+              event.currentTarget.value = ''
+            }}
+          />
+        </label>
+      </div>
+
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <div className="relative flex-1">
+          <Link2 className="absolute start-3 top-3.5 h-4 w-4 text-black/30" />
+          <input
+            value={link}
+            onChange={(event) => setLink(event.target.value)}
+            placeholder="Paste a link"
+            className="min-h-11 w-full rounded-xl border border-black/10 bg-white ps-10 pe-3 text-sm outline-none"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={onLink}
+          disabled={addingLink || !link.trim()}
+          className="min-h-11 rounded-xl border border-black/10 bg-white px-4 text-xs font-black disabled:opacity-40"
+        >
+          {addingLink ? 'Adding...' : 'Add link'}
+        </button>
+      </div>
+
+      {attachments.length > 0 && (
+        <div className="mt-3 space-y-2">
+          {attachments.map((item) => (
+            <a
+              key={item.attachment_uuid}
+              href={item.kind === 'file' ? item.public_path : item.external_url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.06] bg-white px-3 py-2.5 text-sm"
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                {item.kind === 'file' ? <Paperclip className="h-4 w-4 shrink-0 text-black/35" /> : <Link2 className="h-4 w-4 shrink-0 text-black/35" />}
+                <span className="truncate font-semibold">{item.original_name || 'Attachment'}</span>
+              </span>
+              {item.kind === 'file' && item.scan_status === 'clean' && (
+                <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-black uppercase tracking-[0.08em] text-emerald-700">
+                  <FileCheck2 className="h-3.5 w-3.5" /> Scanned
+                </span>
+              )}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function EntryEditor({ entry, onClose, onSaved }: { entry: AppliedLearningEntry; onClose: () => void; onSaved: (entry: AppliedLearningEntry) => void }) {
@@ -77,7 +220,7 @@ function EntryEditor({ entry, onClose, onSaved }: { entry: AppliedLearningEntry;
   return (
     <div className="fixed inset-0 z-[1000] flex items-end justify-center bg-black/50 sm:items-center sm:p-5">
       <div className="max-h-[94vh] w-full overflow-y-auto rounded-t-[28px] bg-white sm:max-w-2xl sm:rounded-[28px]">
-        <div className="sticky top-0 flex items-center justify-between border-b border-black/[0.07] bg-white px-5 py-4 sm:px-7">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black/[0.07] bg-white px-5 py-4 sm:px-7">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: RED }}>Applied learning</p>
             <h3 className="mt-1 text-xl font-black">Update the result</h3>
@@ -86,17 +229,18 @@ function EntryEditor({ entry, onClose, onSaved }: { entry: AppliedLearningEntry;
         </div>
         <div className="space-y-5 p-5 sm:p-7">
           <label className="block text-sm font-bold">How you planned to apply it
-            <textarea value={planned} onChange={(e) => setPlanned(e.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
+            <textarea value={planned} onChange={(event) => setPlanned(event.target.value)} rows={3} className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
           </label>
           <label className="block text-sm font-bold">What you actually applied
-            <textarea value={applied} onChange={(e) => setApplied(e.target.value)} rows={3} placeholder="Come back after applying the learning and record what you did." className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
+            <textarea value={applied} onChange={(event) => setApplied(event.target.value)} rows={3} placeholder="Come back after applying the learning and record what you did." className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
           </label>
           <label className="block text-sm font-bold">Measurable change
-            <textarea value={change} onChange={(e) => setChange(e.target.value)} rows={3} placeholder="What changed, by how much, compared with what?" className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
+            <textarea value={change} onChange={(event) => setChange(event.target.value)} rows={3} placeholder="What changed, by how much, compared with what?" className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
           </label>
           <label className="block text-sm font-bold">Proof or notes
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
+            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
           </label>
+          <AttachmentPanel orgId={entry.org_id} contextType="portfolio" contextUuid={entry.entry_uuid} />
         </div>
         <div className="sticky bottom-0 flex justify-end border-t border-black/[0.07] bg-white p-4 sm:px-7">
           <button disabled={saving} onClick={save} className="flex min-h-12 items-center gap-2 rounded-xl px-6 py-3 text-sm font-extrabold text-white disabled:opacity-60" style={{ backgroundColor: RED }}>
@@ -110,7 +254,7 @@ function EntryEditor({ entry, onClose, onSaved }: { entry: AppliedLearningEntry;
 
 function CapstoneBuilder({ entries, orgId, existing, onSaved }: { entries: AppliedLearningEntry[]; orgId: number; existing?: AppliedLearningCapstone | null; onSaved: () => void }) {
   const session = useLHSession() as any
-  const [selected, setSelected] = useState<string[]>(existing?.selected_entry_uuids || entries.filter((e) => e.application_status !== 'planned').map((e) => e.entry_uuid))
+  const [selected, setSelected] = useState<string[]>(existing?.selected_entry_uuids || entries.filter((entry) => entry.application_status !== 'planned').map((entry) => entry.entry_uuid))
   const [title, setTitle] = useState(existing?.title || '')
   const [challenge, setChallenge] = useState(existing?.challenge || '')
   const [applied, setApplied] = useState(existing?.what_i_applied || '')
@@ -126,15 +270,9 @@ function CapstoneBuilder({ entries, orgId, existing, onSaved }: { entries: Appli
       toast.error('Select at least one portfolio entry first.')
       return
     }
-    if (!applied.trim()) {
-      setApplied(selectedEntries.map((e) => e.previous_application || e.planned_application).filter(Boolean).map((v) => `• ${v}`).join('\n'))
-    }
-    if (!impact.trim()) {
-      setImpact(selectedEntries.map((e) => e.measurable_change).filter(Boolean).map((v) => `• ${v}`).join('\n'))
-    }
-    if (!nextSteps.trim()) {
-      setNextSteps(selectedEntries.map((e) => e.planned_application).filter(Boolean).slice(-3).map((v) => `• ${v}`).join('\n'))
-    }
+    if (!applied.trim()) setApplied(selectedEntries.map((entry) => entry.previous_application || entry.planned_application).filter(Boolean).map((value) => `• ${value}`).join('\n'))
+    if (!impact.trim()) setImpact(selectedEntries.map((entry) => entry.measurable_change).filter(Boolean).map((value) => `• ${value}`).join('\n'))
+    if (!nextSteps.trim()) setNextSteps(selectedEntries.map((entry) => entry.planned_application).filter(Boolean).slice(-3).map((value) => `• ${value}`).join('\n'))
   }
 
   const save = async () => {
@@ -171,11 +309,11 @@ function CapstoneBuilder({ entries, orgId, existing, onSaved }: { entries: Appli
         <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: RED }}>Choose the proof</p>
         <h3 className="mt-2 text-xl font-black">Portfolio entries</h3>
         <p className="mt-2 text-sm leading-6 text-black/50">Select the applications that tell the strongest story.</p>
-        <div className="mt-5 max-h-[480px] space-y-2 overflow-y-auto pr-1">
+        <div className="mt-5 max-h-[480px] space-y-2 overflow-y-auto pe-1">
           {entries.map((entry) => {
             const checked = selected.includes(entry.entry_uuid)
             return (
-              <button key={entry.entry_uuid} onClick={() => setSelected(checked ? selected.filter((id) => id !== entry.entry_uuid) : [...selected, entry.entry_uuid])} className={`w-full rounded-2xl border p-3 text-left transition ${checked ? 'border-[#C51635]/30 bg-[#C51635]/[0.045]' : 'border-black/[0.07] bg-white'}`}>
+              <button key={entry.entry_uuid} onClick={() => setSelected(checked ? selected.filter((id) => id !== entry.entry_uuid) : [...selected, entry.entry_uuid])} className={`w-full rounded-2xl border p-3 text-start transition ${checked ? 'border-[#C51635]/30 bg-[#C51635]/[0.045]' : 'border-black/[0.07] bg-white'}`}>
                 <div className="flex gap-3">
                   <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${checked ? 'border-[#C51635] bg-[#C51635] text-white' : 'border-black/20'}`}>{checked && <Check className="h-3 w-3" />}</span>
                   <div className="min-w-0">
@@ -197,7 +335,7 @@ function CapstoneBuilder({ entries, orgId, existing, onSaved }: { entries: Appli
         </div>
         <div className="space-y-5">
           <label className="block text-sm font-bold">Capstone title
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="A clear title for the change you created" className="mt-2 min-h-12 w-full rounded-xl border border-black/10 bg-[#FAFAFA] px-4 text-sm font-normal outline-none" />
+            <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="A clear title for the change you created" className="mt-2 min-h-12 w-full rounded-xl border border-black/10 bg-[#FAFAFA] px-4 text-sm font-normal outline-none" />
           </label>
           {[
             ['The challenge or opportunity', challenge, setChallenge, 'What was happening before you acted?'],
@@ -205,11 +343,20 @@ function CapstoneBuilder({ entries, orgId, existing, onSaved }: { entries: Appli
             ['Measurable impact', impact, setImpact, 'What changed? Include numbers, time, quality, reach or other credible measures.'],
             ['What you learned', lessons, setLessons, 'What worked, what did not, and what would you do differently?'],
             ['What happens next', nextSteps, setNextSteps, 'How will you sustain or extend the change?'],
-          ].map(([label, value, setter, placeholder]: any) => (
-            <label key={label} className="block text-sm font-bold">{label}
-              <textarea value={value} onChange={(e) => setter(e.target.value)} rows={4} placeholder={placeholder} className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
+          ].map(([label, value, setter, placeholder]) => (
+            <label key={String(label)} className="block text-sm font-bold">{String(label)}
+              <textarea value={String(value)} onChange={(event) => (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value)} rows={4} placeholder={String(placeholder)} className="mt-2 w-full rounded-2xl border border-black/10 bg-[#FAFAFA] p-4 text-sm font-normal leading-6 outline-none" />
             </label>
           ))}
+
+          {existing?.capstone_uuid ? (
+            <AttachmentPanel orgId={orgId} contextType="capstone" contextUuid={existing.capstone_uuid} />
+          ) : (
+            <div className="rounded-2xl border border-dashed border-black/15 bg-[#FAFAFA] p-4 text-sm leading-6 text-black/45">
+              Save the capstone draft once, then you can attach Word, PDF, Excel, PowerPoint files or links.
+            </div>
+          )}
+
           <div className="flex justify-end pt-2">
             <button disabled={saving} onClick={save} className="flex min-h-12 items-center gap-2 rounded-xl px-6 py-3 text-sm font-extrabold text-white disabled:opacity-60" style={{ backgroundColor: RED }}>
               <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save capstone'}
@@ -249,7 +396,10 @@ export default function AppliedLearningPortfolio({ orgslug }: { orgslug: string 
 
   const entries = portfolioQuery.data || []
   const summary = summaryQuery.data || { entries: 0, applied: 0, measured: 0, courses: 0 }
-  const courseNames = useMemo(() => new Map<string, string>((courses || []).map((course: any) => [clean(course.course_uuid), String(course.name || 'Course')] as [string, string])), [courses])
+  const courseNames = useMemo(
+    () => new Map<string, string>((courses || []).map((course: any) => [clean(course.course_uuid), String(course.name || 'Course')])),
+    [courses]
+  )
   const grouped = useMemo(() => {
     const map = new Map<string, AppliedLearningEntry[]>()
     entries.forEach((entry) => {
@@ -280,7 +430,7 @@ export default function AppliedLearningPortfolio({ orgslug }: { orgslug: string 
                 [summary.applied, 'put to work', Target],
                 [summary.measured, 'measured', TrendingUp],
               ].map(([value, label, Icon]: any) => (
-                <div key={label} className="min-w-[100px] rounded-2xl bg-[#0B263D] px-4 py-4 text-white sm:min-w-[125px]">
+                <div key={String(label)} className="min-w-[100px] rounded-2xl bg-[#0B263D] px-4 py-4 text-white sm:min-w-[125px]">
                   <Icon className="h-4 w-4 text-white/55" />
                   <p className="mt-3 text-2xl font-black">{value}</p>
                   <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white/55">{label}</p>
@@ -312,7 +462,7 @@ export default function AppliedLearningPortfolio({ orgslug }: { orgslug: string 
                 const isOpen = openCourse === null || openCourse === courseUuid
                 return (
                   <section key={courseUuid} className="overflow-hidden rounded-[24px] border border-black/[0.08] bg-white">
-                    <button onClick={() => setOpenCourse(isOpen && openCourse !== null ? null : courseUuid)} className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left sm:px-6">
+                    <button onClick={() => setOpenCourse(isOpen && openCourse !== null ? null : courseUuid)} className="flex w-full items-center justify-between gap-4 px-5 py-5 text-start sm:px-6">
                       <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0B263D] text-white"><Layers3 className="h-5 w-5" /></span><div><p className="text-lg font-black">{courseNames.get(courseUuid) || 'Course'}</p><p className="text-xs text-black/45">{courseEntries.length} applied learning {courseEntries.length === 1 ? 'entry' : 'entries'}</p></div></div>
                       <ChevronDown className={`h-5 w-5 text-black/35 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
@@ -328,12 +478,11 @@ export default function AppliedLearningPortfolio({ orgslug }: { orgslug: string 
                                     {entry.module_name && <span className="text-xs font-semibold text-black/40">{entry.module_name}</span>}
                                     <span className="text-xs text-black/35">{dateLabel(entry.updated_at)}</span>
                                   </div>
-                                  <h3 className="mt-3 text-base font-black">{entry.activity_name || 'Learning application'}</h3>
-                                  <p className="mt-2 text-sm leading-6 text-black/60"><strong className="text-black/75">I will apply:</strong> {entry.planned_application}</p>
-                                  {entry.previous_application && <p className="mt-2 text-sm leading-6 text-black/60"><strong className="text-black/75">I applied:</strong> {entry.previous_application}</p>}
-                                  {entry.measurable_change && <div className="mt-3 rounded-xl bg-white p-3 text-sm leading-6 text-[#0B263D]"><strong>Recorded change:</strong> {entry.measurable_change}</div>}
+                                  <h3 className="mt-3 text-base font-black">{entry.activity_name || 'Applied learning'}</h3>
+                                  <p className="mt-2 text-sm leading-6 text-black/55">{entry.previous_application || entry.planned_application}</p>
+                                  {entry.measurable_change && <p className="mt-2 text-sm font-semibold leading-6 text-[#0B263D]">Change: {entry.measurable_change}</p>}
                                 </div>
-                                <button onClick={() => setEditing(entry)} className="shrink-0 rounded-xl border border-black/10 bg-white px-4 py-2.5 text-xs font-extrabold text-[#0B263D]">Update result</button>
+                                <button onClick={() => setEditing(entry)} className="shrink-0 rounded-xl border border-black/10 bg-white px-4 py-2.5 text-xs font-black">Update and attach proof</button>
                               </div>
                             </article>
                           ))}
@@ -346,7 +495,12 @@ export default function AppliedLearningPortfolio({ orgslug }: { orgslug: string 
             </div>
           )
         ) : (
-          <CapstoneBuilder entries={entries} orgId={org?.id} existing={capstonesQuery.data?.[0] || null} onSaved={() => queryClient.invalidateQueries({ queryKey: ['applied-learning', 'capstones', org?.id] })} />
+          <CapstoneBuilder
+            entries={entries}
+            orgId={Number(org?.id || 0)}
+            existing={capstonesQuery.data?.[0] || null}
+            onSaved={() => queryClient.invalidateQueries({ queryKey: ['applied-learning', 'capstones', org?.id] })}
+          />
         )}
       </section>
 

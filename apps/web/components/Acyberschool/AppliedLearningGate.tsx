@@ -133,7 +133,7 @@ export default function AppliedLearningGate() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-4 z-[70] flex min-h-12 items-center gap-2 rounded-full px-4 py-3 text-sm font-extrabold text-white shadow-[0_12px_35px_rgba(11,38,61,0.24)] sm:bottom-7 sm:right-7"
+        className="fixed bottom-5 end-4 z-[70] flex min-h-12 items-center gap-2 rounded-full px-4 py-3 text-sm font-extrabold text-white shadow-[0_12px_35px_rgba(11,38,61,0.24)] sm:bottom-7 sm:end-7"
         style={{ backgroundColor: satisfied ? BRAND_NAVY : BRAND_RED }}
       >
         {satisfied ? <CheckCircle2 className="h-4 w-4" /> : <BriefcaseBusiness className="h-4 w-4" />}

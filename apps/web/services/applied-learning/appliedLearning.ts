@@ -36,6 +36,22 @@ export type AppliedLearningCapstone = {
   updated_at: string
 }
 
+export type LearningAttachment = {
+  id: number
+  attachment_uuid: string
+  user_id: number
+  org_id: number
+  context_type: 'portfolio' | 'capstone'
+  context_uuid: string
+  kind: 'file' | 'link'
+  original_name: string
+  stored_name: string
+  public_path: string
+  external_url: string
+  scan_status: 'clean' | 'pending_scan' | 'rejected' | 'scan_error'
+  created_at: string
+}
+
 export type ReflectionPayload = {
   org_id: number
   course_uuid: string
@@ -112,4 +128,66 @@ export async function saveCapstone(payload: Partial<AppliedLearningCapstone> & {
     RequestBodyWithAuthHeader('POST', payload, null, token)
   )
   return errorHandling(res) as Promise<AppliedLearningCapstone>
+}
+
+export async function getLearningAttachments(
+  orgId: number,
+  contextType: 'portfolio' | 'capstone',
+  contextUuid: string,
+  token?: string
+) {
+  const params = new URLSearchParams({
+    org_id: String(orgId),
+    context_type: contextType,
+    context_uuid: contextUuid,
+  })
+  const res = await secureFetch(
+    `${getAPIUrl()}applied-learning/attachments?${params.toString()}`,
+    RequestBodyWithAuthHeader('GET', null, null, token)
+  )
+  return errorHandling(res) as Promise<LearningAttachment[]>
+}
+
+export async function uploadLearningAttachment(
+  orgId: number,
+  contextType: 'portfolio' | 'capstone',
+  contextUuid: string,
+  file: File,
+  token?: string
+) {
+  const params = new URLSearchParams({
+    org_id: String(orgId),
+    context_type: contextType,
+    context_uuid: contextUuid,
+  })
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch(`${getAPIUrl()}applied-learning/attachments/file?${params.toString()}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+    credentials: 'include',
+  })
+  return errorHandling(res) as Promise<LearningAttachment>
+}
+
+export async function addLearningLink(
+  orgId: number,
+  contextType: 'portfolio' | 'capstone',
+  contextUuid: string,
+  url: string,
+  label: string,
+  token?: string
+) {
+  const res = await secureFetch(
+    `${getAPIUrl()}applied-learning/attachments/link`,
+    RequestBodyWithAuthHeader('POST', {
+      org_id: orgId,
+      context_type: contextType,
+      context_uuid: contextUuid,
+      url,
+      label,
+    }, null, token)
+  )
+  return errorHandling(res) as Promise<LearningAttachment>
 }

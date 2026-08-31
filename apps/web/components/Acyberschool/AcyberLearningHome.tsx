@@ -51,7 +51,7 @@ function JourneyProgress({ courses, learned, applied, measured }: { courses: num
           return (
             <div
               key={stage.label}
-              className={`relative p-5 sm:p-6 ${index % 2 === 0 ? 'border-r border-black/[0.06]' : ''} ${index < 2 ? 'border-b border-black/[0.06] lg:border-b-0' : ''} ${index > 0 ? 'lg:border-l lg:border-black/[0.06]' : ''} lg:border-r-0`}
+              className={`relative p-5 sm:p-6 ${index % 2 === 0 ? 'border-e border-black/[0.06]' : ''} ${index < 2 ? 'border-b border-black/[0.06] lg:border-b-0' : ''} ${index > 0 ? 'lg:border-s lg:border-black/[0.06]' : ''} lg:border-e-0`}
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -96,7 +96,7 @@ function CourseEntryCard({ course, orgslug, org, completed }: { course: Course; 
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-          <span className="absolute bottom-4 left-4 rounded-full bg-white/95 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#0B263D]">
+          <span className="absolute bottom-4 start-4 rounded-full bg-white/95 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#0B263D]">
             {completed > 0 ? `${completed} steps completed` : 'Ready to begin'}
           </span>
         </div>
@@ -151,7 +151,7 @@ export default function AcyberLearningHome({ orgslug, courses = [], isLoading = 
   return (
     <main className="min-h-[calc(100vh-60px)] bg-white pb-3 text-[#101418]">
       <section className="relative overflow-hidden border-b border-black/[0.06]">
-        <div className="absolute inset-y-0 right-0 hidden w-[40%] lg:block" style={{ backgroundColor: NAVY }} />
+        <div className="absolute inset-y-0 end-0 hidden w-[40%] lg:block" style={{ backgroundColor: NAVY }} />
         <div className="relative mx-auto grid w-full max-w-7xl gap-8 px-5 py-10 sm:px-8 sm:py-14 lg:grid-cols-[1.2fr_0.8fr] lg:px-10 lg:py-18">
           <div className="max-w-4xl">
             <div className="mb-6 flex items-center gap-3">
