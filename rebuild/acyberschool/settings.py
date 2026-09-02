@@ -85,5 +85,6 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "true").lower() == "true"
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Acyberschool <noreply@acyberschool.com>")
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" if EMAIL_HOST else "django.core.mail.backends.console.EmailBackend"
 
+ACYBERSCHOOL_PUBLIC_URL = os.getenv("ACYBERSCHOOL_PUBLIC_URL", "https://classroom.acyberschool.com").rstrip("/")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
