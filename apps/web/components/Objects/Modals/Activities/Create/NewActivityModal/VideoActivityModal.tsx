@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import * as Form from '@radix-ui/react-form'
 import BarLoader from 'react-spinners/BarLoader'
-import { PlayCircle, Upload, YoutubeLogo } from '@phosphor-icons/react'
+import { LinkSimple, PlayCircle, Upload } from '@phosphor-icons/react'
 import { constructAcceptValue } from '@/lib/constants'
+import { vimeoId, youTubeId } from '@/lib/media/embedUrl'
 import CaptionsSettings, {
   type CaptionsValue,
   EMPTY_CAPTIONS,
@@ -19,7 +20,7 @@ interface VideoDetails {
 
 interface ExternalVideoObject {
   name: string
-  type: string
+  type: 'youtube' | 'vimeo'
   uri: string
   chapter_id: string
   details: VideoDetails
@@ -34,8 +35,9 @@ function VideoModal({
   const [video, setVideo] = React.useState<File | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [name, setName] = React.useState('')
-  const [youtubeUrl, setYoutubeUrl] = React.useState('')
-  const [selectedView, setSelectedView] = React.useState<'file' | 'youtube'>(
+  const [externalUrl, setExternalUrl] = React.useState('')
+  const [externalError, setExternalError] = React.useState('')
+  const [selectedView, setSelectedView] = React.useState<'file' | 'link'>(
     'file'
   )
   const [videoDetails, setVideoDetails] = React.useState<VideoDetails>({
@@ -52,9 +54,16 @@ function VideoModal({
     }
   }
 
+  const getExternalProvider = (url: string): 'youtube' | 'vimeo' | null => {
+    if (youTubeId(url)) return 'youtube'
+    if (vimeoId(url)) return 'vimeo'
+    return null
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setExternalError('')
 
     try {
       if (selectedView === 'file' && video) {
@@ -82,11 +91,17 @@ function VideoModal({
         )
       }
 
-      if (selectedView === 'youtube') {
+      if (selectedView === 'link') {
+        const provider = getExternalProvider(externalUrl.trim())
+        if (!provider) {
+          setExternalError('Use a valid YouTube or Vimeo link.')
+          return
+        }
+
         const external_video_object: ExternalVideoObject = {
           name,
-          type: 'youtube',
-          uri: youtubeUrl,
+          type: provider,
+          uri: externalUrl.trim(),
           chapter_id: chapterId,
           details: videoDetails,
         }
@@ -157,15 +172,15 @@ function VideoModal({
             </button>
             <button
               type="button"
-              onClick={() => setSelectedView('youtube')}
+              onClick={() => setSelectedView('link')}
               className={`flex items-center justify-center py-2.5 gap-2 text-sm font-medium border-s border-gray-200 transition-colors ${
-                selectedView === 'youtube'
+                selectedView === 'link'
                   ? 'bg-gray-100 text-gray-900'
                   : 'bg-white text-gray-500 hover:bg-gray-50'
               }`}
             >
-              <YoutubeLogo size={16} weight="duotone" />
-              YouTube
+              <LinkSimple size={16} weight="duotone" />
+              Video link
             </button>
           </div>
         </div>
@@ -185,19 +200,25 @@ function VideoModal({
           </div>
         )}
 
-        {selectedView === 'youtube' && (
+        {selectedView === 'link' && (
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">
-              YouTube URL
+              YouTube or Vimeo URL
             </label>
             <input
-              value={youtubeUrl}
-              onChange={(e) => setYoutubeUrl(e.target.value)}
-              type="text"
+              value={externalUrl}
+              onChange={(e) => {
+                setExternalUrl(e.target.value)
+                setExternalError('')
+              }}
+              type="url"
               required
-              placeholder="https://youtube.com/watch?v=..."
+              placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
               className="w-full h-9 px-3 text-sm rounded-lg bg-gray-50 border border-gray-200 outline-none focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-colors"
             />
+            {externalError ? (
+              <p className="text-xs text-red-500">{externalError}</p>
+            ) : null}
           </div>
         )}
       </div>
