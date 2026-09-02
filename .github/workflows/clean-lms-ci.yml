@@ -54,9 +54,13 @@ jobs:
       - name: Install clean LMS dependencies
         run: pip install -r rebuild/requirements.txt
 
+      - name: Verify model migrations are current
+        working-directory: rebuild
+        run: python manage.py makemigrations --check --dry-run
+
       - name: Create clean LMS database tables
         working-directory: rebuild
-        run: python manage.py migrate --run-syncdb --noinput
+        run: python manage.py migrate --noinput
 
       - name: Django system check
         working-directory: rebuild
