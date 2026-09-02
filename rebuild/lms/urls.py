@@ -1,13 +1,20 @@
 from django.urls import path
-from . import views
+from . import manage_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
     path("courses/new/", views.course_create, name="course_create"),
     path("courses/<int:course_id>/manage/", views.course_manage, name="course_manage"),
+    path("courses/<int:course_id>/edit/", manage_views.course_edit, name="course_edit"),
+    path("courses/<int:course_id>/publish-toggle/", manage_views.course_publish_toggle, name="course_publish_toggle"),
     path("courses/<int:course_id>/lessons/new/", views.lesson_create, name="lesson_create"),
+    path("lessons/<int:lesson_id>/edit/", manage_views.lesson_edit, name="lesson_edit"),
+    path("lessons/<int:lesson_id>/delete/", manage_views.lesson_delete, name="lesson_delete"),
+    path("lessons/<int:lesson_id>/move/<str:direction>/", manage_views.lesson_move, name="lesson_move"),
     path("courses/<int:course_id>/assignments/new/", views.assignment_create, name="assignment_create"),
+    path("assignments/<int:assignment_id>/edit/", manage_views.assignment_edit, name="assignment_edit"),
+    path("assignments/<int:assignment_id>/delete/", manage_views.assignment_delete, name="assignment_delete"),
     path("assignments/<int:assignment_id>/questions/new/", views.question_create, name="question_create"),
     path("courses/<int:course_id>/invite/", views.invite, name="invite"),
     path("courses/<int:course_id>/learn/", views.course_player, name="course_player"),
