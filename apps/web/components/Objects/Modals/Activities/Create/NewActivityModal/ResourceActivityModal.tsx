@@ -11,7 +11,6 @@ function ResourceActivityModal({ submitActivity, chapterId, course, orgslug }: a
 
   const handleSelect = (resource: SelectedResource) => {
     setSelected(resource)
-    // Prefill the activity name from the resource on first pick.
     if (!activityName && resource.name) {
       setActivityName(resource.name)
     }
@@ -74,10 +73,14 @@ function ResourceActivityModal({ submitActivity, chapterId, course, orgslug }: a
         </Form.Field>
 
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">Pick a resource</label>
+          <label className="text-sm font-medium text-gray-700">Pick content</label>
+          <p className="text-xs text-gray-400">
+            Use a file from Media Library or another LearnHouse resource.
+          </p>
           <ResourcePicker
             mode="select"
             orgslug={orgslug}
+            tabs={['media', 'courses', 'podcasts', 'communities', 'boards', 'playgrounds']}
             onSelect={handleSelect}
             selectedUuid={selected?.resource_uuid}
           />
