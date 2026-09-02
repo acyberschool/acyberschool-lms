@@ -100,6 +100,25 @@ jobs:
           fi
           curl -fsS http://127.0.0.1:8095/login/ | grep -q "Acyberschool Classroom"
 
+      - name: Build Mac test package
+        run: |
+          rm -rf package
+          mkdir -p package/Acyberschool_Clean_LMS_Test
+          cp -a rebuild/. package/Acyberschool_Clean_LMS_Test/
+          printf '%s\n' "$GITHUB_SHA" > package/Acyberschool_Clean_LMS_Test/BUILD_COMMIT.txt
+          chmod +x package/Acyberschool_Clean_LMS_Test/Start_Acyberschool_Clean_Rebuild.command
+          chmod +x package/Acyberschool_Clean_LMS_Test/Stop_Acyberschool_Clean_Rebuild.command
+          cd package
+          zip -r ../Acyberschool_Clean_LMS_Test.zip Acyberschool_Clean_LMS_Test
+
+      - name: Upload Mac test package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Acyberschool_Clean_LMS_Test
+          path: Acyberschool_Clean_LMS_Test.zip
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Stop clean LMS test stack
         if: always()
         run: docker compose -f rebuild/docker-compose.yml down -v
