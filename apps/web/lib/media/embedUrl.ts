@@ -1,8 +1,8 @@
 /*
- Turn a user-pasted URL into something an <iframe> can actually render.
+ Turn a user-pasted URL into something the learner view can render.
 
- Shared by the Embed activity and the Library media viewer, so an EMBED media
- row plays in-app instead of sending the user off to the original site.
+ Shared by the Embed activity and the Library media viewer, so linked learning
+ content opens in-app instead of sending the learner away from the course.
 */
 
 /** Extract a YouTube video id from common URL shapes, or null. */
@@ -38,6 +38,32 @@ export function vimeoId(url: string): string | null {
   }
 }
 
+export type DirectMediaKind = 'audio' | 'video' | null
+
+/**
+ * Identify direct browser-playable media links. Query strings and signed URL
+ * parameters do not affect detection because only the URL pathname is checked.
+ */
+export function directMediaKind(url: string): DirectMediaKind {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase()
+    if (/\.(mp3|wav|aac|flac|m4a|ogg)$/.test(pathname)) return 'audio'
+    if (/\.(mp4|webm)$/.test(pathname)) return 'video'
+  } catch {
+    /* not a parseable URL */
+  }
+  return null
+}
+
+function isDirectOfficeDocument(url: string): boolean {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase()
+    return /\.(ppt|pptx|doc|docx|xls|xlsx)$/.test(pathname)
+  } catch {
+    return false
+  }
+}
+
 export function toEmbedUrl(url: string): string {
   const yt = youTubeId(url)
   if (yt) return `https://www.youtube.com/embed/${yt}?autoplay=0&rel=0`
@@ -59,6 +85,13 @@ export function toEmbedUrl(url: string): string {
   )
   if (googleFormMatch) {
     return `${googleFormMatch[1]}/viewform?embedded=true`
+  }
+
+  // Public direct Office files, including PowerPoint, render in Microsoft's
+  // browser viewer. Private uploaded course files use the platform's protected
+  // document path instead and are never exposed to this third-party viewer.
+  if (isDirectOfficeDocument(url)) {
+    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`
   }
 
   // Figma → embed host
