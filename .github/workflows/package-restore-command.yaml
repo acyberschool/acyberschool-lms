@@ -16,14 +16,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Package restore command
-        run: |
-          chmod +x Restore_Acyberschool_LMS.command
-          zip Restore_Acyberschool_LMS.zip Restore_Acyberschool_LMS.command
+      - name: Prepare restore command
+        run: chmod +x Restore_Acyberschool_LMS.command
       - name: Upload restore package
         uses: actions/upload-artifact@v7
         with:
           name: Restore_Acyberschool_LMS
-          path: Restore_Acyberschool_LMS.zip
+          path: Restore_Acyberschool_LMS.command
           if-no-files-found: error
           retention-days: 7
