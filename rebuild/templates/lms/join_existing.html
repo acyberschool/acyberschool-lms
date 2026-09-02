@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="auth-wrap"><div class="auth-card">
+  <div class="eyebrow">Invitation</div><h1 style="font-size:38px">Sign in to join</h1>
+  <p class="muted">An Acyberschool account already exists for {{ invitation.email }}. Sign in with that account, then open this invitation link again.</p>
+  <a class="button" href="{% url 'login' %}?next={{ request.path|urlencode }}">Sign in</a>
+</div></div>
+{% endblock %}
