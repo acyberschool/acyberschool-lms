@@ -1,11 +1,12 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from src.core.events.database import get_db_session
 from src.db.media.media import MediaCreate, MediaRead, MediaTypeEnum, MediaUpdate
 from src.security.auth import get_current_user
 from src.services.users.users import PublicUser
 from src.services.courses.activities.activities import get_activity
 from src.services.media.course_media import get_media_attached_to_activity
+from src.services.media.office_preview import enqueue_office_preview, get_preview_media
 from src.services.media.media import (
     create_media,
     get_media,
@@ -44,8 +45,6 @@ async def api_serve_course_activity_media_file(
 ):
     activity = await get_activity(request, activity_uuid, current_user, db_session)
     media = await get_media_attached_to_activity(activity, media_uuid, db_session)
-    # Course-attached media is treated as private for caching even when the
-    # underlying library item is public. The course access check is the grant.
     return await serve_media_file(
         request, media, db_session, is_public=False, download=download
     )
@@ -66,6 +65,49 @@ async def api_head_course_activity_media_file(
     media = await get_media_attached_to_activity(activity, media_uuid, db_session)
     return await serve_media_file(
         request, media, db_session, is_public=False, head=True
+    )
+
+
+@router.get(
+    "/course-activity/{activity_uuid}/{media_uuid}/preview",
+    summary="Serve a converted presentation preview",
+    description="Serves the protected PDF preview of an attached PPT/PPTX when the background Office worker has finished conversion. This endpoint never performs conversion.",
+)
+async def api_serve_course_activity_media_preview(
+    request: Request,
+    activity_uuid: str,
+    media_uuid: str,
+    current_user=Depends(get_current_user),
+    db_session=Depends(get_db_session),
+):
+    activity = await get_activity(request, activity_uuid, current_user, db_session)
+    media = await get_media_attached_to_activity(activity, media_uuid, db_session)
+    preview_media = await get_preview_media(media, db_session)
+    if not preview_media:
+        raise HTTPException(status_code=404, detail="Presentation preview is still being prepared")
+    return await serve_media_file(
+        request, preview_media, db_session, is_public=False
+    )
+
+
+@router.head(
+    "/course-activity/{activity_uuid}/{media_uuid}/preview",
+    summary="Presentation preview status",
+)
+async def api_head_course_activity_media_preview(
+    request: Request,
+    activity_uuid: str,
+    media_uuid: str,
+    current_user=Depends(get_current_user),
+    db_session=Depends(get_db_session),
+):
+    activity = await get_activity(request, activity_uuid, current_user, db_session)
+    media = await get_media_attached_to_activity(activity, media_uuid, db_session)
+    preview_media = await get_preview_media(media, db_session)
+    if not preview_media:
+        raise HTTPException(status_code=404, detail="Presentation preview is still being prepared")
+    return await serve_media_file(
+        request, preview_media, db_session, is_public=False, head=True
     )
 
 
@@ -169,7 +211,17 @@ async def api_create_media(
         public=public,
         folder_uuid=folder_uuid,
     )
-    return await create_media(request, media_object, current_user, db_session, file)
+    created = await create_media(
+        request, media_object, current_user, db_session, file
+    )
+    if (
+        created.media_type == MediaTypeEnum.UPLOAD
+        and (created.file_format or "").strip().lower().lstrip(".") in {"ppt", "pptx"}
+    ):
+        # Fire-and-forget queue only. Conversion runs in the separate Office
+        # worker and never consumes API or learner request capacity.
+        enqueue_office_preview(created.media_uuid)
+    return created
 
 
 @router.get(
