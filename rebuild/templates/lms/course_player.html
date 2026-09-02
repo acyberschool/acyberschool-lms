@@ -12,7 +12,7 @@
     <div style="margin-top:12px">
       {% for lesson in lessons %}<a class="lesson-link" href="#lesson-{{ lesson.id }}">{{ lesson.order }}. {{ lesson.title }} {% if lesson.id in completed_ids %}<span class="lesson-complete">✓</span>{% endif %}</a>{% endfor %}
     </div>
-    {% if assignments %}<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><strong>Assignments</strong>{% for assignment in assignments %}<a class="lesson-link" href="{% url 'assignment_take' assignment.id %}">{{ assignment.title }}</a>{% endfor %}{% endif %}
+    {% if assignments %}<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><strong>Assignments</strong>{% for assignment in assignments %}{% if member.role == 'student' %}<a class="lesson-link" href="{% url 'assignment_take' assignment.id %}">{{ assignment.title }}</a>{% else %}<span class="lesson-link">{{ assignment.title }}</span>{% endif %}{% endfor %}{% endif %}
     {% if course_complete %}<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><a class="button" href="{% url 'certificate_download' course.id %}">Get certificate</a>{% endif %}
   </aside>
 
@@ -21,11 +21,11 @@
     <section id="lesson-{{ lesson.id }}" class="content-panel">
       <div class="row"><div><div class="eyebrow">Lesson {{ lesson.order }}</div><h2>{{ lesson.title }}</h2></div><span class="pill">{{ lesson.get_content_type_display }}</span></div>
       {% if lesson.content_type == 'text' %}<div class="prose">{{ lesson.body }}</div>{% endif %}
-      {% if lesson.content_type == 'video' and lesson.file %}<video controls controlsList="nodownload" preload="metadata"><source src="{{ lesson.file.url }}"></video>{% endif %}
-      {% if lesson.content_type == 'audio' and lesson.file %}<audio controls controlsList="nodownload"><source src="{{ lesson.file.url }}"></audio>{% endif %}
-      {% if lesson.content_type == 'image' and lesson.file %}<img src="{{ lesson.file.url }}" alt="{{ lesson.title }}">{% endif %}
-      {% if lesson.content_type == 'pdf' and lesson.file %}<iframe src="{{ lesson.file.url }}#toolbar=0"></iframe>{% endif %}
-      {% if lesson.content_type == 'office' %}{% if lesson.rendered_file %}<iframe src="{{ lesson.rendered_file.url }}#toolbar=0"></iframe>{% else %}<p class="muted">This document is being prepared for browser viewing.</p>{% endif %}{% endif %}
+      {% if lesson.content_type == 'video' and lesson.file %}<video controls controlsList="nodownload" preload="metadata"><source src="{% url 'lesson_media' lesson.id 'source' %}"></video>{% endif %}
+      {% if lesson.content_type == 'audio' and lesson.file %}<audio controls controlsList="nodownload"><source src="{% url 'lesson_media' lesson.id 'source' %}"></audio>{% endif %}
+      {% if lesson.content_type == 'image' and lesson.file %}<img src="{% url 'lesson_media' lesson.id 'source' %}" alt="{{ lesson.title }}">{% endif %}
+      {% if lesson.content_type == 'pdf' and lesson.file %}<iframe src="{% url 'lesson_media' lesson.id 'source' %}#toolbar=0"></iframe>{% endif %}
+      {% if lesson.content_type == 'office' %}{% if lesson.rendered_file %}<iframe src="{% url 'lesson_media' lesson.id 'rendered' %}#toolbar=0"></iframe>{% else %}<p class="muted">This document is being prepared for browser viewing.</p>{% endif %}{% endif %}
       {% if lesson.content_type == 'link' and lesson.external_url %}<p><a class="button secondary" href="{{ lesson.external_url }}" target="_blank" rel="noopener">Open learning resource</a></p>{% endif %}
       {% if lesson.body and lesson.content_type != 'text' %}<div class="prose" style="margin-top:20px">{{ lesson.body }}</div>{% endif %}
       {% if member.role == 'student' %}
@@ -35,7 +35,7 @@
     {% empty %}<div class="empty">Course content is being added.</div>{% endfor %}
 
     {% if assignments %}
-    <section class="content-panel"><div class="eyebrow">Assignments</div><h2>Apply what you learned</h2><div class="stack">{% for assignment in assignments %}<div class="card row"><div><span class="pill">{{ assignment.get_assignment_type_display }}</span><h3>{{ assignment.title }}</h3><p class="muted">{{ assignment.instructions|truncatewords:24 }}</p></div><a class="button secondary" href="{% url 'assignment_take' assignment.id %}">Open</a></div>{% endfor %}</div></section>
+    <section class="content-panel"><div class="eyebrow">Assignments</div><h2>Apply what you learned</h2><div class="stack">{% for assignment in assignments %}<div class="card row"><div><span class="pill">{{ assignment.get_assignment_type_display }}</span><h3>{{ assignment.title }}</h3><p class="muted">{{ assignment.instructions|truncatewords:24 }}</p></div>{% if member.role == 'student' %}<a class="button secondary" href="{% url 'assignment_take' assignment.id %}">Open</a>{% endif %}</div>{% endfor %}</div></section>
     {% endif %}
 
     <section class="ai-box">
