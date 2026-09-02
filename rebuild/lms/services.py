@@ -10,7 +10,8 @@ import requests
 from django.conf import settings
 from django.core.files import File
 from django.utils.text import slugify
-from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
 
 from .models import Certificate, LessonProgress
@@ -69,22 +70,59 @@ def get_or_create_certificate(course, student):
 
 def certificate_pdf(certificate):
     buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
+    width, height = landscape(A4)
+    c = canvas.Canvas(buffer, pagesize=(width, height))
+    brand = colors.HexColor("#C90046")
+    ink = colors.HexColor("#111827")
+    muted = colors.HexColor("#667085")
+
     c.setTitle(f"Acyberschool Certificate {certificate.certificate_id}")
-    c.setFont("Helvetica-Bold", 26)
-    c.drawCentredString(width / 2, height - 150, "ACYBERSCHOOL")
-    c.setFont("Helvetica", 15)
-    c.drawCentredString(width / 2, height - 210, "Certificate of Completion")
-    c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(width / 2, height - 285, certificate.student.get_full_name() or certificate.student.username)
-    c.setFont("Helvetica", 14)
-    c.drawCentredString(width / 2, height - 330, "has successfully completed")
-    c.setFont("Helvetica-Bold", 18)
-    c.drawCentredString(width / 2, height - 380, certificate.course.title)
-    c.setFont("Helvetica", 10)
-    c.drawCentredString(width / 2, 110, f"Certificate ID: {certificate.certificate_id}")
-    c.drawCentredString(width / 2, 90, certificate.issued_at.strftime("Issued %d %B %Y"))
+    c.setStrokeColor(brand)
+    c.setLineWidth(5)
+    c.rect(28, 28, width - 56, height - 56)
+    c.setStrokeColor(colors.HexColor("#E5E7EB"))
+    c.setLineWidth(1)
+    c.rect(42, 42, width - 84, height - 84)
+
+    c.setFillColor(brand)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(width / 2, height - 92, "ACYBERSCHOOL")
+
+    c.setFillColor(ink)
+    c.setFont("Helvetica-Bold", 30)
+    c.drawCentredString(width / 2, height - 145, "Certificate of Completion")
+
+    c.setFillColor(muted)
+    c.setFont("Helvetica", 13)
+    c.drawCentredString(width / 2, height - 182, "This certifies that")
+
+    learner_name = certificate.student.get_full_name() or certificate.student.username
+    c.setFillColor(ink)
+    c.setFont("Helvetica-Bold", 25)
+    c.drawCentredString(width / 2, height - 228, learner_name)
+
+    c.setFillColor(muted)
+    c.setFont("Helvetica", 13)
+    c.drawCentredString(width / 2, height - 263, "has successfully completed")
+
+    c.setFillColor(ink)
+    c.setFont("Helvetica-Bold", 20)
+    c.drawCentredString(width / 2, height - 304, certificate.course.title)
+
+    c.setFillColor(muted)
+    c.setFont("Helvetica", 11)
+    c.drawCentredString(width / 2, height - 335, certificate.course.institution.name)
+
+    issued = certificate.issued_at.strftime("%d %B %Y")
+    verify_url = f"{settings.ACYBERSCHOOL_PUBLIC_URL}/verify/{certificate.certificate_id}/"
+    c.setFillColor(ink)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(78, 92, f"Issued: {issued}")
+    c.drawRightString(width - 78, 92, f"Certificate ID: {certificate.certificate_id}")
+    c.setFillColor(muted)
+    c.setFont("Helvetica", 9)
+    c.drawCentredString(width / 2, 67, f"Verify this certificate at {verify_url}")
+
     c.showPage()
     c.save()
     buffer.seek(0)
