@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - clean-rebuild-20260902
+      - main
     paths:
       - 'rebuild/**'
       - '.github/workflows/clean-lms-ci.yml'
