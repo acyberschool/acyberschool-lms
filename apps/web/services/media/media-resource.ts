@@ -54,6 +54,14 @@ export function getCourseActivityMediaFileUrl(
   return options?.download ? `${base}?download=true` : base
 }
 
+/** Protected PDF preview URL for an attached PPT/PPTX activity resource. */
+export function getCourseActivityMediaPreviewUrl(
+  activityUuid: string,
+  mediaUuid: string
+) {
+  return `${getAPIUrl()}media/course-activity/${activityUuid}/${mediaUuid}/preview`
+}
+
 /**
  * Create a fresh, random share link for a media file. Each call mints a NEW
  * token (the URL is unique every time) and is revocable server-side. The link
