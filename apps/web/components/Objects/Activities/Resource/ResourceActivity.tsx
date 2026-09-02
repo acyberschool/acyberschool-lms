@@ -16,7 +16,7 @@ import { mediaKind } from '@/lib/media/mediaKind'
 import { directMediaKind, toEmbedUrl } from '@/lib/media/embedUrl'
 import {
   getMediaById,
-  getMediaFileDirectory,
+  getCourseActivityMediaFileUrl,
 } from '@services/media/media-resource'
 import { useLHSession } from '@components/Contexts/LHSessionContext'
 
@@ -79,8 +79,8 @@ function MediaResource({ activity }: { activity: any }) {
   }
 
   const kind = mediaKind(resource)
-  const fileUrl = getMediaFileDirectory(undefined, resourceUuid)
-  const downloadUrl = getMediaFileDirectory(undefined, resourceUuid, undefined, {
+  const fileUrl = getCourseActivityMediaFileUrl(activity.activity_uuid, resourceUuid)
+  const downloadUrl = getCourseActivityMediaFileUrl(activity.activity_uuid, resourceUuid, {
     download: true,
   })
 
