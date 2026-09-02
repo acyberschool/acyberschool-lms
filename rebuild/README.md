@@ -1,51 +1,52 @@
 # Acyberschool Clean LMS Rebuild
 
-This directory is a clean, isolated LMS implementation created after the production recovery path was stopped.
-
-## Scope in this build
-
-Instructor and admin:
-
-* create and publish courses
-* add text, video, audio, images, PDF, Office documents and links
-* Office documents are converted to PDF for browser reading when LibreOffice can render them
-* create quizzes and essays
-* invite and enrol students
-* review essays and grade submissions
-* view learner progress, scores and completion
-
-Student:
-
-* join with an invitation link
-* play video and audio in the browser
-* read text, PDF and converted Office documents
-* mark lessons complete
-* answer quizzes and submit essays
-* use the course AI assistant when a Gemini key is configured
-* maintain an applied learning portfolio
-* download a certificate after course and required assignment completion
-
-## Isolation
-
-The rebuild uses its own containers and its own named database and media volumes. It does not use or modify the old LearnHouse production database.
+This folder contains the isolated replacement classroom. It does not use or alter the legacy LearnHouse database, media volumes, Cloudflare tunnel or production containers.
 
 ## Local browser test
 
-From this directory:
+On macOS, run:
 
-```sh
-docker compose up -d --build
-```
+`Start_Acyberschool_Clean_Rebuild.command`
 
-Then open `http://localhost:8095`.
+The launcher checks Docker, builds the clean LMS, waits for the login page to respond, then opens `http://127.0.0.1:8095` in the browser.
 
-Default local admin credentials are intentionally temporary and must be replaced before production:
+The local preview is bound to `127.0.0.1` only. It is not exposed to the public internet.
 
-* email: `admin@acyberschool.com`
-* password: `ChangeMeNow123!`
+Default local administrator:
 
-Production deployment must set `DJANGO_SECRET_KEY`, `POSTGRES_PASSWORD`, `ACYBERSCHOOL_ADMIN_PASSWORD`, trusted hosts and cookie security in environment variables.
+* Email: `admin@acyberschool.com`
+* Password: `ChangeMeNow123!`
 
-## Production cutover
+These defaults are for the isolated local preview only. Production requires environment supplied secrets.
 
-Do not point `classroom.acyberschool.com` at this build until browser acceptance testing is complete. The old production stack remains untouched as a safety copy.
+## Current product scope
+
+The clean rebuild provides:
+
+* institution and role based access
+* instructor course creation
+* course publishing
+* student invitations and enrolment
+* text, image, video, audio, PDF and Office lessons
+* protected lesson media
+* quizzes with automatic scoring
+* essay submissions with instructor grading and feedback
+* learner progress tracking
+* tutor analytics
+* learner portfolio entries and evidence uploads
+* course AI assistant when a Gemini key is configured
+* course completion rules
+* downloadable certificates
+
+## Isolation
+
+The Docker project uses its own containers and named volumes:
+
+* `acyberschool-clean-db`
+* `acyberschool-clean-web`
+* `acyberschool-clean-nginx`
+* `acyberschool_clean_db`
+* `acyberschool_clean_media`
+* `acyberschool_clean_static`
+
+The old LMS can remain running while this build is tested.
