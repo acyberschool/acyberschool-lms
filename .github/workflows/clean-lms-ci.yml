@@ -105,6 +105,8 @@ jobs:
           rm -rf package
           mkdir -p package/Acyberschool_Clean_LMS_Test
           cp -a rebuild/. package/Acyberschool_Clean_LMS_Test/
+          find package/Acyberschool_Clean_LMS_Test -type d -name '__pycache__' -prune -exec rm -rf {} +
+          find package/Acyberschool_Clean_LMS_Test -type f -name '*.pyc' -delete
           printf '%s\n' "$GITHUB_SHA" > package/Acyberschool_Clean_LMS_Test/BUILD_COMMIT.txt
           chmod +x package/Acyberschool_Clean_LMS_Test/Start_Acyberschool_Clean_Rebuild.command
           chmod +x package/Acyberschool_Clean_LMS_Test/Stop_Acyberschool_Clean_Rebuild.command
