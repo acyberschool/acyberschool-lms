@@ -15,6 +15,7 @@ from .models import (
     Lesson,
     LessonProgress,
     Membership,
+    Question,
     Submission,
 )
 from .services import course_is_complete
@@ -104,3 +105,116 @@ class CleanLmsCriticalFlowTests(TestCase):
         self.assertContains(response, "Verified")
         self.assertContains(response, "AI Foundations")
         self.assertContains(response, "student@example.com")
+
+    def test_full_instructor_to_student_certificate_journey(self):
+        client = Client()
+        client.force_login(self.instructor)
+
+        response = client.post(
+            reverse("course_create"),
+            {
+                "title": "Practical AI at Work",
+                "description": "A complete classroom journey.",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        course = Course.objects.get(title="Practical AI at Work")
+        self.assertEqual(course.slug, "practical-ai-at-work")
+        self.assertFalse(course.published)
+
+        response = client.post(
+            reverse("lesson_create", args=[course.id]),
+            {
+                "title": "Start here",
+                "order": 1,
+                "content_type": "text",
+                "body": "AI can help with a task when the goal and context are clear.",
+                "published": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        lesson = Lesson.objects.get(course=course, title="Start here")
+
+        response = client.post(
+            reverse("assignment_create", args=[course.id]),
+            {
+                "title": "Check your understanding",
+                "instructions": "Choose the correct answer.",
+                "assignment_type": "quiz",
+                "pass_mark": 60,
+                "required": "on",
+                "published": "on",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        assignment = Assignment.objects.get(course=course, title="Check your understanding")
+
+        response = client.post(
+            reverse("question_create", args=[assignment.id]),
+            {
+                "text": "What improves an AI task?",
+                "order": 1,
+                "choice_a": "A clear goal and context",
+                "choice_b": "No context at all",
+                "choice_c": "",
+                "choice_d": "",
+                "correct": "0",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        question = Question.objects.get(assignment=assignment)
+
+        response = client.post(reverse("course_publish_toggle", args=[course.id]))
+        self.assertEqual(response.status_code, 302)
+        course.refresh_from_db()
+        self.assertTrue(course.published)
+
+        invited_email = "newlearner@example.com"
+        response = client.post(reverse("invite", args=[course.id]), {"email": invited_email})
+        self.assertEqual(response.status_code, 200)
+        invitation = Invitation.objects.get(course=course, email=invited_email)
+
+        client.logout()
+        response = client.get(reverse("join_invitation", args=[invitation.code]))
+        self.assertEqual(response.status_code, 200)
+        response = client.post(
+            reverse("join_invitation", args=[invitation.code]),
+            {
+                "first_name": "New",
+                "last_name": "Learner",
+                "password1": "Acyb3rSchool-Test-987!",
+                "password2": "Acyb3rSchool-Test-987!",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        learner = User.objects.get(email=invited_email)
+        self.assertTrue(Enrollment.objects.filter(course=course, student=learner, active=True).exists())
+
+        response = client.get(reverse("course_player", args=[course.id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Start here")
+        self.assertContains(response, "Check your understanding")
+
+        response = client.post(reverse("lesson_complete", args=[lesson.id]))
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(course_is_complete(course, learner))
+
+        response = client.post(
+            reverse("assignment_take", args=[assignment.id]),
+            {f"q_{question.id}": "0"},
+        )
+        self.assertEqual(response.status_code, 302)
+        submission = Submission.objects.get(assignment=assignment, student=learner)
+        self.assertEqual(float(submission.score), 100.0)
+        self.assertTrue(course_is_complete(course, learner))
+
+        response = client.get(reverse("certificate_download", args=[course.id]))
+        self.assertEqual(response.status_code, 200)
+        certificate = Certificate.objects.get(course=course, student=learner)
+
+        client.logout()
+        response = client.get(reverse("verify_certificate", args=[certificate.certificate_id]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Verified")
+        self.assertContains(response, "Practical AI at Work")
+        self.assertContains(response, "New Learner")
