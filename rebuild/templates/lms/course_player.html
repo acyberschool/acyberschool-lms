@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}{{ course.title }} | Acyberschool{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><div class="eyebrow">{{ course.institution.name }}</div><h1>{{ course.title }}</h1><p>{{ course.description }}</p></div>
+  {% if member.role == 'student' %}<div style="min-width:220px"><div class="row"><span class="muted">Progress</span><strong>{{ progress }}%</strong></div><div class="progress"><span style="width:{{ progress }}%"></span></div></div>{% endif %}
+</section>
+
+<div class="course-layout">
+  <aside class="course-sidebar card">
+    <strong>Course</strong>
+    <div style="margin-top:12px">
+      {% for lesson in lessons %}<a class="lesson-link" href="#lesson-{{ lesson.id }}">{{ lesson.order }}. {{ lesson.title }} {% if lesson.id in completed_ids %}<span class="lesson-complete">✓</span>{% endif %}</a>{% endfor %}
+    </div>
+    {% if assignments %}<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><strong>Assignments</strong>{% for assignment in assignments %}<a class="lesson-link" href="{% url 'assignment_take' assignment.id %}">{{ assignment.title }}</a>{% endfor %}{% endif %}
+    {% if course_complete %}<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><a class="button" href="{% url 'certificate_download' course.id %}">Get certificate</a>{% endif %}
+  </aside>
+
+  <div class="stack">
+    {% for lesson in lessons %}
+    <section id="lesson-{{ lesson.id }}" class="content-panel">
+      <div class="row"><div><div class="eyebrow">Lesson {{ lesson.order }}</div><h2>{{ lesson.title }}</h2></div><span class="pill">{{ lesson.get_content_type_display }}</span></div>
+      {% if lesson.content_type == 'text' %}<div class="prose">{{ lesson.body }}</div>{% endif %}
+      {% if lesson.content_type == 'video' and lesson.file %}<video controls controlsList="nodownload" preload="metadata"><source src="{{ lesson.file.url }}"></video>{% endif %}
+      {% if lesson.content_type == 'audio' and lesson.file %}<audio controls controlsList="nodownload"><source src="{{ lesson.file.url }}"></audio>{% endif %}
+      {% if lesson.content_type == 'image' and lesson.file %}<img src="{{ lesson.file.url }}" alt="{{ lesson.title }}">{% endif %}
+      {% if lesson.content_type == 'pdf' and lesson.file %}<iframe src="{{ lesson.file.url }}#toolbar=0"></iframe>{% endif %}
+      {% if lesson.content_type == 'office' %}{% if lesson.rendered_file %}<iframe src="{{ lesson.rendered_file.url }}#toolbar=0"></iframe>{% else %}<p class="muted">This document is being prepared for browser viewing.</p>{% endif %}{% endif %}
+      {% if lesson.content_type == 'link' and lesson.external_url %}<p><a class="button secondary" href="{{ lesson.external_url }}" target="_blank" rel="noopener">Open learning resource</a></p>{% endif %}
+      {% if lesson.body and lesson.content_type != 'text' %}<div class="prose" style="margin-top:20px">{{ lesson.body }}</div>{% endif %}
+      {% if member.role == 'student' %}
+        {% if lesson.id in completed_ids %}<div class="pill success" style="margin-top:18px">Completed</div>{% else %}<form method="post" action="{% url 'lesson_complete' lesson.id %}" style="margin-top:20px">{% csrf_token %}<button class="primary">Mark complete</button></form>{% endif %}
+      {% endif %}
+    </section>
+    {% empty %}<div class="empty">Course content is being added.</div>{% endfor %}
+
+    {% if assignments %}
+    <section class="content-panel"><div class="eyebrow">Assignments</div><h2>Apply what you learned</h2><div class="stack">{% for assignment in assignments %}<div class="card row"><div><span class="pill">{{ assignment.get_assignment_type_display }}</span><h3>{{ assignment.title }}</h3><p class="muted">{{ assignment.instructions|truncatewords:24 }}</p></div><a class="button secondary" href="{% url 'assignment_take' assignment.id %}">Open</a></div>{% endfor %}</div></section>
+    {% endif %}
+
+    <section class="ai-box">
+      <div class="eyebrow" style="color:#ff7aa8">Acyberschool AI</div><h2>Ask about this course</h2>
+      <form id="ai-form" method="post" action="{% url 'ai_assistant' course.id %}">{% csrf_token %}<textarea id="ai-question" name="question" rows="4" placeholder="Ask a question about the course"></textarea><button class="primary" type="submit" style="margin-top:10px">Ask AI</button></form>
+      <div id="ai-answer" class="ai-answer"></div>
+    </section>
+  </div>
+</div>
+<script>
+const aiForm=document.getElementById('ai-form');
+aiForm.addEventListener('submit',async(e)=>{e.preventDefault();const answer=document.getElementById('ai-answer');answer.textContent='Thinking…';const data=new FormData(aiForm);try{const r=await fetch(aiForm.action,{method:'POST',body:data,headers:{'X-CSRFToken':data.get('csrfmiddlewaretoken')}});const j=await r.json();answer.textContent=j.answer||'No response.'}catch(err){answer.textContent='The course AI could not respond just now.'}});
+</script>
+{% endblock %}

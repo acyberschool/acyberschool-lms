@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Manage {{ course.title }} | Acyberschool{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <div class="eyebrow">Course management</div>
+    <h1>{{ course.title }}</h1>
+    <p>{{ course.description }}</p>
+  </div>
+  <div class="stack" style="min-width:180px">
+    <a class="button" href="{% url 'lesson_create' course.id %}">Add lesson</a>
+    <a class="button secondary" href="{% url 'assignment_create' course.id %}">Add assignment</a>
+  </div>
+</section>
+
+<div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-bottom:26px">
+  <a class="button secondary" href="{% url 'invite' course.id %}">Invite students</a>
+  <a class="button secondary" href="{% url 'course_player' course.id %}">Preview course</a>
+  <a class="button secondary" href="{% url 'course_analytics' course.id %}">View analytics</a>
+</div>
+
+<h2 class="section-title">Lessons</h2>
+{% if lessons %}
+<div class="stack">
+  {% for lesson in lessons %}
+  <div class="card row">
+    <div><span class="pill">{{ lesson.get_content_type_display }}</span><h3>{{ lesson.order }}. {{ lesson.title }}</h3></div>
+    {% if lesson.published %}<span class="pill success">Published</span>{% else %}<span class="pill">Draft</span>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="empty">Add the first lesson.</div>{% endif %}
+
+<h2 class="section-title">Assignments</h2>
+{% if assignments %}
+<div class="stack">
+  {% for assignment in assignments %}
+  <div class="card row">
+    <div><span class="pill">{{ assignment.get_assignment_type_display }}</span><h3>{{ assignment.title }}</h3><p class="muted">Pass mark {{ assignment.pass_mark }}%</p></div>
+    {% if assignment.assignment_type == 'quiz' %}<a class="button secondary" href="{% url 'question_create' assignment.id %}">Add questions</a>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="empty">No assignments yet.</div>{% endif %}
+{% endblock %}

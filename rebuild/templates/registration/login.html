@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Sign in | Acyberschool{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="eyebrow">Acyberschool Classroom</div>
+    <h1 style="font-size:38px">Welcome back</h1>
+    <p class="muted">Sign in to continue learning or teaching.</p>
+    <form method="post" class="stack">{% csrf_token %}
+      {{ form.as_p }}
+      <button class="primary" type="submit">Sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="form-card">
+  <div class="eyebrow">Quiz builder</div>
+  <h1 style="font-size:38px">{{ assignment.title }}</h1>
+  {% if questions %}<p class="muted">{{ questions|length }} question{{ questions|length|pluralize }} added.</p>{% endif %}
+  <form method="post" class="stack">{% csrf_token %}
+    {{ form.as_p }}
+    <button class="primary" type="submit" name="add_another" value="1">Save and add another</button>
+    <button class="button secondary" type="submit">Save and finish</button>
+  </form>
+</div>
+{% endblock %}
