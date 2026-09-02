@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Use the invited account | Acyberschool{% endblock %}
+{% block content %}
+<div class="auth-wrap"><div class="auth-card">
+  <div class="eyebrow">Invitation</div>
+  <h1 style="font-size:38px">Use the invited account</h1>
+  <p class="muted">This invitation was sent to <strong>{{ invitation.email }}</strong>, but you are currently signed in as <strong>{{ signed_in_email }}</strong>.</p>
+  <p class="muted">Sign out, then sign in with the invited email to join{% if invitation.course %} {{ invitation.course.title }}{% endif %}.</p>
+  <form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button class="primary" type="submit">Sign out</button>
+  </form>
+</div></div>
+{% endblock %}
