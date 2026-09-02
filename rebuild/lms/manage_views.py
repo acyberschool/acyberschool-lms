@@ -2,10 +2,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from .forms import AssignmentForm, CourseForm, LessonForm
-from .models import Assignment, Course, Lesson, Membership
+from .models import Assignment, Course, Institution, Lesson, Membership
 from .services import convert_office_to_pdf
 
 
@@ -15,6 +16,51 @@ def _require_staff(user, institution):
     member = Membership.objects.filter(user=user, institution=institution).first()
     if not member or member.role not in {"admin", "instructor"}:
         raise Http404
+
+
+def _default_institution_for(user):
+    if user.is_superuser:
+        return Institution.objects.order_by("id").first()
+    membership = (
+        Membership.objects.filter(user=user, role__in=["admin", "instructor"])
+        .select_related("institution")
+        .order_by("id")
+        .first()
+    )
+    return membership.institution if membership else None
+
+
+def _unique_course_slug(institution, title):
+    base = slugify(title)[:70] or "course"
+    candidate = base
+    counter = 2
+    while Course.objects.filter(institution=institution, slug=candidate).exists():
+        suffix = f"-{counter}"
+        candidate = f"{base[:80-len(suffix)]}{suffix}"
+        counter += 1
+    return candidate
+
+
+@login_required
+def course_create(request):
+    institution = _default_institution_for(request.user)
+    if not institution:
+        raise Http404
+    _require_staff(request.user, institution)
+    form = CourseForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        course = form.save(commit=False)
+        course.institution = institution
+        course.instructor = request.user
+        course.slug = _unique_course_slug(institution, course.title)
+        course.save()
+        messages.success(request, "Course created. Add the lessons, then publish when it is ready.")
+        return redirect("course_manage", course_id=course.id)
+    return render(
+        request,
+        "lms/form_page.html",
+        {"form": form, "title": "Create course", "submit_label": "Create course"},
+    )
 
 
 @login_required
