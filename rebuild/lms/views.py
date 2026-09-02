@@ -65,9 +65,10 @@ def _default_institution_for(user):
 def dashboard(request):
     memberships = list(Membership.objects.filter(user=request.user).select_related("institution"))
     if request.user.is_superuser and not memberships:
-        institutions = Institution.objects.all()
+        institutions = list(Institution.objects.all())
     else:
         institutions = [m.institution for m in memberships]
+    can_manage = request.user.is_superuser or any(m.role in {"admin", "instructor"} for m in memberships)
 
     staff_courses = Course.objects.filter(institution__in=institutions, instructor=request.user)
     if request.user.is_superuser:
@@ -78,6 +79,7 @@ def dashboard(request):
         "memberships": memberships,
         "staff_courses": staff_courses,
         "student_cards": student_cards,
+        "can_manage": can_manage,
     })
 
 
@@ -98,6 +100,10 @@ def join_invitation(request, code):
         invitation.used_at = timezone.now()
         invitation.save(update_fields=["used_at"])
         return redirect("dashboard")
+
+    existing_user = User.objects.filter(email__iexact=invitation.email).first() or User.objects.filter(username__iexact=invitation.email).first()
+    if existing_user:
+        return render(request, "lms/join_existing.html", {"invitation": invitation})
 
     form = InviteSignupForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -326,16 +332,22 @@ def course_analytics(request, course_id):
     rows = []
     for enrollment in enrollments:
         student = enrollment.student
-        submissions = Submission.objects.filter(student=student, assignment__course=course)
+        submissions = Submission.objects.filter(student=student, assignment__course=course).select_related("assignment")
+        pending = list(submissions.filter(assignment__assignment_type="essay", score=None))
         rows.append({
             "student": student,
             "progress": course_progress(course, student),
             "average_score": submissions.exclude(score=None).aggregate(v=Avg("score"))["v"],
             "submitted": submissions.count(),
-            "pending_essays": submissions.filter(assignment__assignment_type="essay", score=None).count(),
+            "pending_essays": pending,
             "complete": course_is_complete(course, student),
         })
-    return render(request, "lms/analytics.html", {"course": course, "rows": rows, "assignments": course.assignments.all()})
+    return render(request, "lms/analytics.html", {
+        "course": course,
+        "rows": rows,
+        "assignments": course.assignments.all(),
+        "complete_count": sum(1 for row in rows if row["complete"]),
+    })
 
 
 @login_required
