@@ -1,6 +1,7 @@
 import React from 'react'
 import YouTube from 'react-youtube'
 import { useOrg } from '@components/Contexts/OrgContext'
+import { toEmbedUrl } from '@/lib/media/embedUrl'
 import LearnHousePlayer from './LearnHousePlayer'
 import {
   isActivityHlsReady,
@@ -23,6 +24,7 @@ interface VideoActivityProps {
     content: {
       filename?: string
       uri?: string
+      type?: string
     }
     details?: VideoDetails
     extra_metadata?: {
@@ -53,13 +55,17 @@ function VideoActivity({ activity, course, orgUuid }: VideoActivityProps) {
   const org = useOrg() as any
   const resolvedOrgUuid = orgUuid || org?.org_uuid
   const [videoId, setVideoId] = React.useState('')
+  const externalVideoType = activity?.content?.type || 'youtube'
+  const isVimeo = externalVideoType === 'vimeo'
 
   React.useEffect(() => {
-    if (activity?.content?.uri) {
+    if (activity?.content?.uri && !isVimeo) {
       var getYouTubeID = require('get-youtube-id')
-      setVideoId(getYouTubeID(activity.content.uri))
+      setVideoId(getYouTubeID(activity.content.uri) || '')
+    } else {
+      setVideoId('')
     }
-  }, [activity, org])
+  }, [activity?.content?.uri, isVimeo])
 
   // Prefer adaptive HLS once transcoding is ready; otherwise fall back to the
   // (optimized) progressive MP4 so playback always works.
@@ -73,6 +79,19 @@ function VideoActivity({ activity, course, orgUuid }: VideoActivityProps) {
       activityUuid: activity.activity_uuid,
       filename: activity.content?.filename,
     })
+
+  const getVimeoSource = () => {
+    const uri = activity?.content?.uri
+    if (!uri) return ''
+
+    const base = toEmbedUrl(uri)
+    const params = new URLSearchParams()
+    params.set('autoplay', activity.details?.autoplay ? '1' : '0')
+    params.set('muted', activity.details?.muted ? '1' : '0')
+
+    const start = activity.details?.startTime || 0
+    return `${base}?${params.toString()}${start > 0 ? `#t=${start}s` : ''}`
+  }
 
   return (
     <div className="w-full max-w-full px-0 sm:px-4">
@@ -122,7 +141,20 @@ function VideoActivity({ activity, course, orgUuid }: VideoActivityProps) {
               </div>
             </div>
           )}
-          {activity.activity_sub_type === 'SUBTYPE_VIDEO_YOUTUBE' && (
+          {activity.activity_sub_type === 'SUBTYPE_VIDEO_YOUTUBE' && isVimeo && (
+            <div className="my-0 sm:my-3 md:my-5 w-full">
+              <div className="relative w-full aspect-video sm:rounded-lg overflow-hidden ring-0 sm:ring-1 sm:ring-gray-200/10 sm:dark:ring-gray-700/20 shadow-none">
+                <iframe
+                  src={getVimeoSource()}
+                  title="Vimeo video player"
+                  className="w-full h-full border-0"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </div>
+          )}
+          {activity.activity_sub_type === 'SUBTYPE_VIDEO_YOUTUBE' && !isVimeo && (
             <div className="my-0 sm:my-3 md:my-5 w-full">
               <div className="relative w-full aspect-video sm:rounded-lg overflow-hidden ring-0 sm:ring-1 sm:ring-gray-200/10 sm:dark:ring-gray-700/20 shadow-none">
                 <YouTube
@@ -137,7 +169,7 @@ function VideoActivity({ activity, course, orgUuid }: VideoActivityProps) {
                       end: activity.details?.endTime || undefined,
                       controls: 1,
                       modestbranding: 1,
-                      rel: 0
+                      rel: 0,
                     },
                   }}
                   videoId={videoId}
