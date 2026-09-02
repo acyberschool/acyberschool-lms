@@ -3,13 +3,14 @@ from django.contrib.auth import views as auth_views
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import include, path
-from lms import invite_views
+from lms import certificate_views, invite_views
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("login/", auth_views.LoginView.as_view(template_name="registration/login.html"), name="login"),
     path("logout/", auth_views.LogoutView.as_view(), name="logout"),
     path("join/<str:code>/", invite_views.join_invitation, name="join_invitation"),
+    path("verify/<str:certificate_id>/", certificate_views.verify_certificate, name="verify_certificate"),
     path("", include("lms.urls")),
 ]
 
