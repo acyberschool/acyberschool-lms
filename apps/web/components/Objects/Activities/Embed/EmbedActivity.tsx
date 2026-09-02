@@ -4,7 +4,7 @@ import { WarningCircle, Globe, FloppyDisk, SpinnerGap } from '@phosphor-icons/re
 import { updateActivity } from '@services/courses/activities'
 import { useLHSession } from '@components/Contexts/LHSessionContext'
 import toast from 'react-hot-toast'
-import { toEmbedUrl } from '@/lib/media/embedUrl'
+import { directMediaKind, toEmbedUrl } from '@/lib/media/embedUrl'
 
 interface EmbedActivityProps {
   activity: any
@@ -40,12 +40,59 @@ function EmbedActivity({ activity, editable = false, style }: EmbedActivityProps
   }
 
   const displayUrl = editable ? editUrl : embedUrl
+  const mediaKind = displayUrl ? directMediaKind(displayUrl) : null
 
   if (!displayUrl && !editable) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
         <WarningCircle size={40} className="text-red-400" />
         <p className="text-sm text-gray-600">No embed URL configured</p>
+      </div>
+    )
+  }
+
+  const renderContent = () => {
+    if (!displayUrl) return null
+
+    if (mediaKind === 'audio') {
+      return (
+        <div className="w-full rounded-xl nice-shadow bg-white p-5">
+          <audio
+            src={displayUrl}
+            controls
+            preload="metadata"
+            controlsList="nodownload"
+            className="w-full"
+          />
+        </div>
+      )
+    }
+
+    if (mediaKind === 'video') {
+      return (
+        <div className="w-full rounded-xl overflow-hidden nice-shadow bg-black" style={{ aspectRatio: '16/9' }}>
+          <video
+            src={displayUrl}
+            controls
+            preload="metadata"
+            controlsList="nodownload"
+            playsInline
+            className="w-full h-full"
+          />
+        </div>
+      )
+    }
+
+    return (
+      <div className="w-full rounded-xl overflow-hidden nice-shadow" style={{ aspectRatio: '16/9' }}>
+        <iframe
+          src={toEmbedUrl(displayUrl)}
+          title={activity?.name || 'Learning content'}
+          className="w-full h-full border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation"
+        />
       </div>
     )
   }
@@ -59,7 +106,7 @@ function EmbedActivity({ activity, editable = false, style }: EmbedActivityProps
             type="url"
             value={editUrl}
             onChange={(e) => setEditUrl(e.target.value)}
-            placeholder="https://docs.google.com/document/d/..."
+            placeholder="Paste a document, presentation, audio, video, or web link"
             className="flex-1 h-9 px-3 text-sm rounded-lg bg-gray-50 border border-gray-200 outline-none focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-colors"
           />
           <button
@@ -78,19 +125,11 @@ function EmbedActivity({ activity, editable = false, style }: EmbedActivityProps
       )}
 
       {displayUrl ? (
-        <div className="w-full rounded-xl overflow-hidden nice-shadow" style={{ aspectRatio: '16/9' }}>
-          <iframe
-            src={toEmbedUrl(displayUrl)}
-            className="w-full h-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation"
-          />
-        </div>
+        renderContent()
       ) : (
         <div className="flex flex-col items-center justify-center py-20 gap-3 rounded-xl border-2 border-dashed border-gray-200">
           <Globe size={32} weight="duotone" className="text-gray-300" />
-          <p className="text-sm text-gray-400">Enter an embed URL above to preview</p>
+          <p className="text-sm text-gray-400">Enter a content URL above to preview</p>
         </div>
       )}
     </div>
