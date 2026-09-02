@@ -3,15 +3,15 @@
 <div class="form-card">
   <div class="eyebrow">Invite students</div>
   <h1 style="font-size:38px">{{ course.title }}</h1>
-  <p class="muted">Enter a student's email. Existing users are enrolled immediately. New users receive a secure join link that you can copy and send.</p>
+  <p class="muted">Enter a student's email. Existing users are enrolled immediately. New users receive a secure join link when email delivery is connected.</p>
   <form method="post" class="stack">{% csrf_token %}
     <p><label>Email address</label><input type="email" name="email" required placeholder="student@example.com"></p>
-    <button class="primary" type="submit">Create invitation</button>
+    <button class="primary" type="submit">Invite student</button>
   </form>
   {% if invite_url %}
   <div class="card" style="margin-top:20px">
-    <strong>Invitation link</strong>
-    <p class="muted">Copy this link and send it to the student.</p>
+    {% if email_sent %}<span class="pill success">Invitation emailed</span>{% else %}<span class="pill">Invitation created</span>{% endif %}
+    <p class="muted">You can also copy this secure link and send it directly to the student.</p>
     <input value="{{ invite_url }}" readonly onclick="this.select()">
   </div>
   {% endif %}
