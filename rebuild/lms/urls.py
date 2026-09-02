@@ -1,9 +1,10 @@
 from django.urls import path
-from . import analytics_views, manage_views, media_views, student_views, views
+from . import analytics_views, manage_views, media_views, people_views, student_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("people/", people_views.people, name="people"),
     path("courses/new/", views.course_create, name="course_create"),
     path("courses/<int:course_id>/manage/", views.course_manage, name="course_manage"),
     path("courses/<int:course_id>/edit/", manage_views.course_edit, name="course_edit"),
