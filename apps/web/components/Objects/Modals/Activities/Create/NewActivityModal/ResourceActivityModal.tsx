@@ -20,6 +20,20 @@ function ResourceActivityModal({ submitActivity, chapterId, course, orgslug }: a
     e.preventDefault()
     if (!selected) return
     setIsSubmitting(true)
+
+    const mediaSnapshot =
+      selected.resource_type === 'media' && selected.resource
+        ? {
+            name: selected.resource.name,
+            media_type: selected.resource.media_type,
+            file_format: selected.resource.file_format,
+            file_mime: selected.resource.file_mime,
+            file_size: selected.resource.file_size,
+            url: selected.resource.url,
+            public: selected.resource.public,
+          }
+        : undefined
+
     await submitActivity({
       name: activityName,
       chapter_id: chapterId,
@@ -28,6 +42,7 @@ function ResourceActivityModal({ submitActivity, chapterId, course, orgslug }: a
       content: {
         resource_uuid: selected.resource_uuid,
         resource_type: selected.resource_type,
+        ...(mediaSnapshot ? { resource_snapshot: mediaSnapshot } : {}),
       },
       published_version: 1,
       version: 1,
