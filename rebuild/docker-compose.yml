@@ -29,7 +29,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-acyberschool-local-db}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-clean-rebuild-secret-change-before-production}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,classroom.acyberschool.com}
-      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:8095,https://classroom.acyberschool.com}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:8095,http://127.0.0.1:8095,https://classroom.acyberschool.com}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       ACYBERSCHOOL_ADMIN_EMAIL: ${ACYBERSCHOOL_ADMIN_EMAIL:-admin@acyberschool.com}
       ACYBERSCHOOL_ADMIN_PASSWORD: ${ACYBERSCHOOL_ADMIN_PASSWORD:-ChangeMeNow123!}
@@ -46,7 +46,7 @@ services:
     depends_on:
       - web
     ports:
-      - "8095:80"
+      - "127.0.0.1:8095:80"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - acyberschool_clean_media:/srv/media:ro
