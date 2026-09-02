@@ -1,0 +1,29 @@
+name: Package Acyberschool Restore Command
+
+on:
+  push:
+    branches:
+      - ops/restore-acyberschool-lms-20260902
+    paths:
+      - 'Restore_Acyberschool_LMS.command'
+      - '.github/workflows/package-restore-command.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Package restore command
+        run: |
+          chmod +x Restore_Acyberschool_LMS.command
+          zip Restore_Acyberschool_LMS.zip Restore_Acyberschool_LMS.command
+      - name: Upload restore package
+        uses: actions/upload-artifact@v7
+        with:
+          name: Restore_Acyberschool_LMS
+          path: Restore_Acyberschool_LMS.zip
+          if-no-files-found: error
+          retention-days: 7
