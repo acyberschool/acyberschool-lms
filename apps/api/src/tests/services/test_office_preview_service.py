@@ -14,6 +14,11 @@ class _Redis:
         self.items.append((key, value))
 
 
+class _FailingRedis:
+    def rpush(self, _key, _value):
+        raise RuntimeError("Redis unavailable")
+
+
 def _media(**overrides):
     values = {
         "media_type": MediaTypeEnum.UPLOAD,
@@ -44,6 +49,13 @@ def test_enqueue_only_pushes_job_to_redis(monkeypatch):
     assert redis.items == [
         (office_preview.REDIS_QUEUE_KEY, "media_presentation")
     ]
+
+
+def test_enqueue_fails_closed_when_redis_errors(monkeypatch):
+    monkeypatch.setenv("LEARNHOUSE_OFFICE_PREVIEW_ENABLED", "true")
+    monkeypatch.setattr(office_preview, "get_redis_client", lambda: _FailingRedis())
+
+    assert office_preview.enqueue_office_preview("media_presentation") is False
 
 
 def test_disabled_preview_does_not_queue(monkeypatch):
