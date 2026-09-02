@@ -17,6 +17,7 @@ import { directMediaKind, toEmbedUrl } from '@/lib/media/embedUrl'
 import {
   getMediaById,
   getCourseActivityMediaFileUrl,
+  getCourseActivityMediaPreviewUrl,
 } from '@services/media/media-resource'
 import { useLHSession } from '@components/Contexts/LHSessionContext'
 
@@ -33,6 +34,96 @@ interface ResourceActivityProps {
   activity: any
   orgslug: string
   style?: React.CSSProperties
+}
+
+function PresentationPreview({
+  activity,
+  resource,
+  resourceUuid,
+  downloadUrl,
+}: {
+  activity: any
+  resource: any
+  resourceUuid: string
+  downloadUrl: string
+}) {
+  const previewUrl = getCourseActivityMediaPreviewUrl(activity.activity_uuid, resourceUuid)
+  const [ready, setReady] = React.useState(false)
+  const [checking, setChecking] = React.useState(true)
+
+  React.useEffect(() => {
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let attempts = 0
+
+    const check = async () => {
+      attempts += 1
+      try {
+        const response = await fetch(previewUrl, {
+          method: 'HEAD',
+          credentials: 'include',
+          cache: 'no-store',
+        })
+        if (cancelled) return
+        if (response.ok) {
+          setReady(true)
+          setChecking(false)
+          return
+        }
+      } catch {
+        // A transient network error behaves like "not ready" and is retried.
+      }
+
+      if (cancelled) return
+      if (attempts < 12) {
+        timer = setTimeout(check, 5000)
+      } else {
+        setChecking(false)
+      }
+    }
+
+    check()
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [previewUrl])
+
+  if (ready) {
+    return (
+      <div
+        className="w-full rounded-xl overflow-hidden nice-shadow bg-white"
+        style={{ height: '78vh', minHeight: 520 }}
+      >
+        <iframe
+          src={previewUrl}
+          title={resource.name || activity.name || 'Presentation'}
+          className="w-full h-full border-0"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="w-full rounded-xl nice-shadow bg-white p-8 flex flex-col items-center text-center gap-4">
+      <FileIcon size={42} weight="duotone" className="text-gray-400" />
+      <div>
+        <p className="font-medium text-gray-800">{resource.name || activity.name}</p>
+        <p className="mt-1 text-sm text-gray-500">
+          {checking
+            ? 'Preparing the presentation for viewing in the classroom.'
+            : 'The classroom preview is not ready yet.'}
+        </p>
+      </div>
+      <a
+        href={downloadUrl}
+        className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+      >
+        <DownloadSimple size={16} />
+        Open original file
+      </a>
+    </div>
+  )
 }
 
 function MediaResource({ activity }: { activity: any }) {
@@ -64,9 +155,7 @@ function MediaResource({ activity }: { activity: any }) {
   }, [resourceUuid, snapshot, accessToken])
 
   if (loading) {
-    return (
-      <div className="w-full h-48 rounded-xl bg-gray-100 animate-pulse" />
-    )
+    return <div className="w-full h-48 rounded-xl bg-gray-100 animate-pulse" />
   }
 
   if (failed || !resource) {
@@ -83,17 +172,23 @@ function MediaResource({ activity }: { activity: any }) {
   const downloadUrl = getCourseActivityMediaFileUrl(activity.activity_uuid, resourceUuid, {
     download: true,
   })
+  const fileFormat = (resource.file_format || '').toLowerCase().replace(/^\./, '')
+
+  if (fileFormat === 'ppt' || fileFormat === 'pptx') {
+    return (
+      <PresentationPreview
+        activity={activity}
+        resource={resource}
+        resourceUuid={resourceUuid}
+        downloadUrl={downloadUrl}
+      />
+    )
+  }
 
   if (kind === 'audio') {
     return (
       <div className="w-full rounded-xl nice-shadow bg-white p-6">
-        <audio
-          src={fileUrl}
-          controls
-          preload="metadata"
-          controlsList="nodownload"
-          className="w-full"
-        />
+        <audio src={fileUrl} controls preload="metadata" controlsList="nodownload" className="w-full" />
       </div>
     )
   }
@@ -101,14 +196,7 @@ function MediaResource({ activity }: { activity: any }) {
   if (kind === 'video') {
     return (
       <div className="w-full rounded-xl overflow-hidden nice-shadow bg-black" style={{ aspectRatio: '16/9' }}>
-        <video
-          src={fileUrl}
-          controls
-          preload="metadata"
-          controlsList="nodownload"
-          playsInline
-          className="w-full h-full"
-        />
+        <video src={fileUrl} controls preload="metadata" controlsList="nodownload" playsInline className="w-full h-full" />
       </div>
     )
   }
@@ -116,11 +204,7 @@ function MediaResource({ activity }: { activity: any }) {
   if (kind === 'pdf') {
     return (
       <div className="w-full rounded-xl overflow-hidden nice-shadow bg-white" style={{ height: '78vh', minHeight: 520 }}>
-        <iframe
-          src={fileUrl}
-          title={resource.name || activity.name || 'PDF document'}
-          className="w-full h-full border-0"
-        />
+        <iframe src={fileUrl} title={resource.name || activity.name || 'PDF document'} className="w-full h-full border-0" />
       </div>
     )
   }
@@ -129,11 +213,7 @@ function MediaResource({ activity }: { activity: any }) {
     return (
       <div className="w-full flex justify-center rounded-xl nice-shadow bg-white p-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={fileUrl}
-          alt={resource.name || activity.name || 'Learning image'}
-          className="max-w-full max-h-[78vh] object-contain rounded-lg"
-        />
+        <img src={fileUrl} alt={resource.name || activity.name || 'Learning image'} className="max-w-full max-h-[78vh] object-contain rounded-lg" />
       </div>
     )
   }
@@ -184,14 +264,9 @@ function MediaResource({ activity }: { activity: any }) {
       <FileIcon size={42} weight="duotone" className="text-gray-400" />
       <div>
         <p className="font-medium text-gray-800">{resource.name || activity.name}</p>
-        <p className="mt-1 text-sm text-gray-500">
-          This file is available securely from the course.
-        </p>
+        <p className="mt-1 text-sm text-gray-500">This file is available securely from the course.</p>
       </div>
-      <a
-        href={downloadUrl}
-        className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-      >
+      <a href={downloadUrl} className="inline-flex items-center gap-2 rounded-lg bg-black px-4 py-2 text-sm font-medium text-white hover:bg-gray-800">
         <DownloadSimple size={16} />
         Open file
       </a>
@@ -241,21 +316,13 @@ function ResourceActivity({ activity, orgslug, style }: ResourceActivityProps) {
           <Icon size={20} weight="duotone" className={`${meta.color} flex-shrink-0`} />
           <span className="text-sm font-medium text-gray-600">{meta.label}</span>
         </div>
-        <a
-          href={baseUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors"
-        >
+        <a href={baseUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 transition-colors">
           <ArrowSquareOut size={14} />
           Open
         </a>
       </div>
 
-      <div
-        className="w-full rounded-xl overflow-hidden nice-shadow bg-white"
-        style={{ height: '75vh', minHeight: 480 }}
-      >
+      <div className="w-full rounded-xl overflow-hidden nice-shadow bg-white" style={{ height: '75vh', minHeight: 480 }}>
         <iframe
           src={embedUrl}
           className="w-full h-full border-0"
