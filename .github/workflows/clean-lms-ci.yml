@@ -75,3 +75,31 @@ jobs:
 
       - name: Build clean LMS Docker image
         run: docker build -t acyberschool-clean-lms:ci rebuild
+
+      - name: Verify Office renderer is inside image
+        run: docker run --rm --entrypoint libreoffice acyberschool-clean-lms:ci --headless --version
+
+      - name: Start complete clean LMS Docker stack
+        working-directory: rebuild
+        run: docker compose up -d --build
+
+      - name: Browser endpoint smoke test
+        run: |
+          ready=0
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8095/login/ >/dev/null; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$ready" -ne 1 ]; then
+            docker compose -f rebuild/docker-compose.yml ps
+            docker compose -f rebuild/docker-compose.yml logs --tail=200
+            exit 1
+          fi
+          curl -fsS http://127.0.0.1:8095/login/ | grep -q "Acyberschool Classroom"
+
+      - name: Stop clean LMS test stack
+        if: always()
+        run: docker compose -f rebuild/docker-compose.yml down -v
