@@ -17,7 +17,7 @@ function EmbedActivityModal({ submitActivity, chapterId, course }: any) {
       chapter_id: chapterId,
       activity_type: 'TYPE_DYNAMIC',
       activity_sub_type: 'SUBTYPE_DYNAMIC_EMBED',
-      content: { embed_url: embedUrl },
+      content: { embed_url: embedUrl, description: activityDescription },
       published_version: 1,
       version: 1,
       course_id: course.id,
@@ -37,7 +37,7 @@ function EmbedActivityModal({ submitActivity, chapterId, course }: any) {
       >
         <span className="flex items-center gap-2 bg-white nice-shadow rounded-full px-4 py-1.5 text-sm font-medium text-gray-600">
           <Globe size={18} weight="duotone" className="text-cyan-400" />
-          Embed
+          Link content
         </span>
       </div>
 
@@ -62,10 +62,10 @@ function EmbedActivityModal({ submitActivity, chapterId, course }: any) {
 
         <Form.Field name="embed-activity-url" className="space-y-1.5">
           <Form.Label className="text-sm font-medium text-gray-700">
-            Embed URL
+            Content URL
           </Form.Label>
           <Form.Message match="valueMissing" className="text-xs text-red-500">
-            Please provide an embed URL
+            Please provide a content URL
           </Form.Message>
           <Form.Message match="typeMismatch" className="text-xs text-red-500">
             Please provide a valid URL
@@ -75,10 +75,13 @@ function EmbedActivityModal({ submitActivity, chapterId, course }: any) {
               onChange={(e) => setEmbedUrl(e.target.value)}
               type="url"
               required
-              placeholder="https://docs.google.com/document/d/..."
+              placeholder="Paste a presentation, document, audio, video, or web link"
               className="w-full h-9 px-3 text-sm rounded-lg bg-gray-50 border border-gray-200 outline-none focus:border-gray-300 focus:ring-1 focus:ring-gray-200 transition-colors"
             />
           </Form.Control>
+          <p className="text-xs text-gray-400">
+            Supports Google Slides, public PowerPoint files, direct audio and video links, and embeddable web content.
+          </p>
         </Form.Field>
 
         <Form.Field name="embed-activity-desc" className="space-y-1.5">
