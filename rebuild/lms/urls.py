@@ -11,6 +11,7 @@ urlpatterns = [
     path("assignments/<int:assignment_id>/questions/new/", views.question_create, name="question_create"),
     path("courses/<int:course_id>/invite/", views.invite, name="invite"),
     path("courses/<int:course_id>/learn/", views.course_player, name="course_player"),
+    path("lessons/<int:lesson_id>/media/<str:variant>/", views.lesson_media, name="lesson_media"),
     path("lessons/<int:lesson_id>/complete/", views.lesson_complete, name="lesson_complete"),
     path("assignments/<int:assignment_id>/take/", views.assignment_take, name="assignment_take"),
     path("submissions/<int:submission_id>/grade/", views.grade_submission, name="grade_submission"),
