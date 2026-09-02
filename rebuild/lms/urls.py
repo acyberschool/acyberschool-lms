@@ -1,5 +1,5 @@
 from django.urls import path
-from . import manage_views, views
+from . import manage_views, media_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
@@ -12,17 +12,19 @@ urlpatterns = [
     path("lessons/<int:lesson_id>/edit/", manage_views.lesson_edit, name="lesson_edit"),
     path("lessons/<int:lesson_id>/delete/", manage_views.lesson_delete, name="lesson_delete"),
     path("lessons/<int:lesson_id>/move/<str:direction>/", manage_views.lesson_move, name="lesson_move"),
+    path("lessons/<int:lesson_id>/media/<str:variant>/", views.lesson_media, name="lesson_media"),
+    path("lessons/<int:lesson_id>/complete/", views.lesson_complete, name="lesson_complete"),
     path("courses/<int:course_id>/assignments/new/", views.assignment_create, name="assignment_create"),
     path("assignments/<int:assignment_id>/edit/", manage_views.assignment_edit, name="assignment_edit"),
     path("assignments/<int:assignment_id>/delete/", manage_views.assignment_delete, name="assignment_delete"),
     path("assignments/<int:assignment_id>/questions/new/", views.question_create, name="question_create"),
-    path("courses/<int:course_id>/invite/", views.invite, name="invite"),
-    path("courses/<int:course_id>/learn/", views.course_player, name="course_player"),
-    path("lessons/<int:lesson_id>/media/<str:variant>/", views.lesson_media, name="lesson_media"),
-    path("lessons/<int:lesson_id>/complete/", views.lesson_complete, name="lesson_complete"),
     path("assignments/<int:assignment_id>/take/", views.assignment_take, name="assignment_take"),
     path("submissions/<int:submission_id>/grade/", views.grade_submission, name="grade_submission"),
+    path("submissions/<int:submission_id>/attachment/", media_views.submission_attachment, name="submission_attachment"),
+    path("courses/<int:course_id>/invite/", views.invite, name="invite"),
+    path("courses/<int:course_id>/learn/", views.course_player, name="course_player"),
     path("portfolio/", views.portfolio, name="portfolio"),
+    path("portfolio/<int:entry_id>/evidence/", media_views.portfolio_evidence, name="portfolio_evidence"),
     path("courses/<int:course_id>/analytics/", views.course_analytics, name="course_analytics"),
     path("courses/<int:course_id>/ai/", views.ai_assistant, name="ai_assistant"),
     path("courses/<int:course_id>/certificate/", views.certificate_download, name="certificate_download"),
