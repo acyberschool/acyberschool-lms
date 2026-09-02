@@ -1,0 +1,46 @@
+name: Package Acyberschool Restore
+
+on:
+  push:
+    branches:
+      - deployment/restore-learnhouse-20260902
+    paths:
+      - 'deployment/Restore_Acyberschool_LearnHouse_LMS.command'
+      - '.github/workflows/package-acyberschool-restore.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Validate and package restore command
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate shell syntax
+        run: bash -n deployment/Restore_Acyberschool_LearnHouse_LMS.command
+      - name: Build executable ZIP
+        run: |
+          mkdir -p package
+          cp deployment/Restore_Acyberschool_LearnHouse_LMS.command package/
+          chmod +x package/Restore_Acyberschool_LearnHouse_LMS.command
+          cat > package/READ_ME_FIRST.txt <<'EOF'
+          ACYBERSCHOOL LEARNHOUSE LMS RESTORE
+
+          1. Double click Restore_Acyberschool_LearnHouse_LMS.command
+          2. Let the Terminal window finish.
+          3. When it says RESTORE COMPLETED, open classroom.acyberschool.com.
+
+          The command backs up the existing database before changing the application.
+          It never deletes Docker volumes and never changes Cloudflare.
+          If the restored site fails its health checks, it automatically restores the previous application image.
+          EOF
+          cd package
+          zip -r ../Restore_Acyberschool_LearnHouse_LMS.zip .
+      - name: Upload restore package
+        uses: actions/upload-artifact@v7
+        with:
+          name: Restore_Acyberschool_LearnHouse_LMS
+          path: Restore_Acyberschool_LearnHouse_LMS.zip
+          if-no-files-found: error
+          retention-days: 7
