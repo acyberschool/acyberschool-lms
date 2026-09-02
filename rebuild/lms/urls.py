@@ -1,5 +1,5 @@
 from django.urls import path
-from . import manage_views, media_views, views
+from . import manage_views, media_views, student_views, views
 
 urlpatterns = [
     path("", views.home, name="home"),
@@ -22,7 +22,7 @@ urlpatterns = [
     path("submissions/<int:submission_id>/grade/", views.grade_submission, name="grade_submission"),
     path("submissions/<int:submission_id>/attachment/", media_views.submission_attachment, name="submission_attachment"),
     path("courses/<int:course_id>/invite/", views.invite, name="invite"),
-    path("courses/<int:course_id>/learn/", views.course_player, name="course_player"),
+    path("courses/<int:course_id>/learn/", student_views.course_player, name="course_player"),
     path("portfolio/", views.portfolio, name="portfolio"),
     path("portfolio/<int:entry_id>/evidence/", media_views.portfolio_evidence, name="portfolio_evidence"),
     path("courses/<int:course_id>/analytics/", views.course_analytics, name="course_analytics"),
