@@ -4,6 +4,8 @@ from src.core.events.database import get_db_session
 from src.db.media.media import MediaCreate, MediaRead, MediaTypeEnum, MediaUpdate
 from src.security.auth import get_current_user
 from src.services.users.users import PublicUser
+from src.services.courses.activities.activities import get_activity
+from src.services.media.course_media import get_media_attached_to_activity
 from src.services.media.media import (
     create_media,
     get_media,
@@ -20,7 +22,54 @@ from src.services.media.media_serve import serve_media_file
 router = APIRouter()
 
 
-# --- File serving (the ONLY way the client loads media bytes) ----------------
+# --- Course activity file serving -------------------------------------------
+#
+# Learners should not need broad Media Library permissions to consume a file an
+# instructor deliberately attached to their course. These endpoints first run
+# the existing LearnHouse activity access checks, then verify that the activity
+# references this exact media UUID. The rest of the library stays inaccessible.
+
+@router.get(
+    "/course-activity/{activity_uuid}/{media_uuid}/file",
+    summary="Serve media attached to a course activity",
+    description="Streams only the Media Library file explicitly referenced by an accessible course Resource activity. Supports Range requests and optional download disposition.",
+)
+async def api_serve_course_activity_media_file(
+    request: Request,
+    activity_uuid: str,
+    media_uuid: str,
+    download: bool = False,
+    current_user=Depends(get_current_user),
+    db_session=Depends(get_db_session),
+):
+    activity = await get_activity(request, activity_uuid, current_user, db_session)
+    media = await get_media_attached_to_activity(activity, media_uuid, db_session)
+    # Course-attached media is treated as private for caching even when the
+    # underlying library item is public. The course access check is the grant.
+    return await serve_media_file(
+        request, media, db_session, is_public=False, download=download
+    )
+
+
+@router.head(
+    "/course-activity/{activity_uuid}/{media_uuid}/file",
+    summary="Course activity media metadata",
+)
+async def api_head_course_activity_media_file(
+    request: Request,
+    activity_uuid: str,
+    media_uuid: str,
+    current_user=Depends(get_current_user),
+    db_session=Depends(get_db_session),
+):
+    activity = await get_activity(request, activity_uuid, current_user, db_session)
+    media = await get_media_attached_to_activity(activity, media_uuid, db_session)
+    return await serve_media_file(
+        request, media, db_session, is_public=False, head=True
+    )
+
+
+# --- General Media Library file serving -------------------------------------
 
 @router.get(
     "/{media_uuid}/file",
