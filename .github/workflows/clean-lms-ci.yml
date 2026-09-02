@@ -1,0 +1,73 @@
+name: Acyberschool Clean LMS
+
+on:
+  push:
+    branches:
+      - clean-rebuild-20260902
+    paths:
+      - 'rebuild/**'
+      - '.github/workflows/clean-lms-ci.yml'
+  pull_request:
+    paths:
+      - 'rebuild/**'
+      - '.github/workflows/clean-lms-ci.yml'
+
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: acyberschool_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d acyberschool_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: acyberschool_ci
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      DJANGO_SECRET_KEY: clean-lms-ci-secret-key
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost
+      COOKIE_SECURE: 'false'
+      ACYBERSCHOOL_PUBLIC_URL: http://testserver
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: rebuild/requirements.txt
+
+      - name: Install clean LMS dependencies
+        run: pip install -r rebuild/requirements.txt
+
+      - name: Create clean LMS database tables
+        working-directory: rebuild
+        run: python manage.py migrate --run-syncdb --noinput
+
+      - name: Django system check
+        working-directory: rebuild
+        run: python manage.py check
+
+      - name: Critical instructor and learner flow tests
+        working-directory: rebuild
+        run: python manage.py test lms --verbosity 2
+
+      - name: Validate Docker Compose
+        run: docker compose -f rebuild/docker-compose.yml config
+
+      - name: Build clean LMS Docker image
+        run: docker build -t acyberschool-clean-lms:ci rebuild
