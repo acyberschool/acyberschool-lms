@@ -17,7 +17,7 @@ import {
 /**
  * Build the media file URL for an uploaded media resource.
  *
- * SECURITY: this now points at the authenticated, access-checked API endpoint
+ * SECURITY: this points at the authenticated, access-checked API endpoint
  * (GET /api/v1/media/{uuid}/file) — NOT the public storage/CDN URL. The browser
  * sends the session cookie (same-origin), so private-folder files are only
  * served to authorized users, and the storage path is never exposed. The
@@ -33,9 +33,24 @@ export function getMediaFileDirectory(
   _fileId?: string,
   options?: { download?: boolean }
 ) {
-  // _orgUuid/_fileId are accepted for backward-compatible call sites but no
-  // longer used: media is served via the authed endpoint keyed by media_uuid.
   const base = `${getAPIUrl()}media/${mediaUuid}/file`
+  return options?.download ? `${base}?download=true` : base
+}
+
+/**
+ * Build a file URL for media attached to one course Resource activity.
+ *
+ * Unlike the general Media Library endpoint, this path authorizes through the
+ * course activity first and only serves the exact media UUID stored on that
+ * activity. An enrolled learner can therefore consume private course content
+ * without receiving broad access to the organisation's Media Library.
+ */
+export function getCourseActivityMediaFileUrl(
+  activityUuid: string,
+  mediaUuid: string,
+  options?: { download?: boolean }
+) {
+  const base = `${getAPIUrl()}media/course-activity/${activityUuid}/${mediaUuid}/file`
   return options?.download ? `${base}?download=true` : base
 }
 
@@ -49,7 +64,7 @@ export async function createMediaShareLink(media_uuid: string, access_token: str
     `${getAPIUrl()}media/${media_uuid}/share-link`,
     RequestBodyWithAuthHeader('POST', {}, null, access_token)
   )
-  return errorHandling(result) // { token }
+  return errorHandling(result)
 }
 
 /** Build the shareable, token-based file URL (random + unique every time). */
