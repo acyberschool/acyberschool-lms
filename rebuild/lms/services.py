@@ -1,5 +1,4 @@
-import json
-import os
+import re
 import secrets
 import subprocess
 import tempfile
@@ -10,6 +9,7 @@ import requests
 from django.conf import settings
 from django.core.files import File
 from django.utils.text import slugify
+from pypdf import PdfReader
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
@@ -129,19 +129,77 @@ def certificate_pdf(certificate):
     return buffer
 
 
+def _pdf_text(path, max_pages=24, max_chars=12000):
+    try:
+        reader = PdfReader(str(path))
+        text = "\n".join((page.extract_text() or "") for page in reader.pages[:max_pages])
+        return text[:max_chars]
+    except Exception:
+        return ""
+
+
+def _lesson_ai_text(lesson):
+    parts = []
+    if lesson.body:
+        parts.append(lesson.body[:8000])
+    if lesson.content_type == "pdf" and lesson.file:
+        parts.append(_pdf_text(lesson.file.path))
+    elif lesson.content_type == "office" and lesson.rendered_file:
+        parts.append(_pdf_text(lesson.rendered_file.path))
+    return "\n".join(part for part in parts if part).strip()
+
+
+def _course_context(course, max_chars=32000):
+    parts = [f"Course: {course.title}", course.description or ""]
+    for lesson in course.lessons.filter(published=True).order_by("order", "id"):
+        text = _lesson_ai_text(lesson)
+        if text:
+            parts.append(f"Lesson {lesson.order} — {lesson.title}\n{text}")
+        if sum(len(part) for part in parts) >= max_chars:
+            break
+    return "\n\n".join(parts)[:max_chars]
+
+
+def _course_lookup_answer(question, course):
+    if not course:
+        return "Ask a question about the course and I will use the available learning material to help you find the answer."
+
+    stop = {"the", "and", "for", "that", "with", "what", "when", "where", "which", "this", "from", "have", "about", "your", "into", "does", "how", "why", "are", "was", "were", "can", "could", "would", "should"}
+    terms = [word for word in re.findall(r"[a-z0-9]+", question.lower()) if len(word) >= 3 and word not in stop]
+    candidates = []
+    for lesson in course.lessons.filter(published=True).order_by("order", "id"):
+        text = _lesson_ai_text(lesson)
+        if not text:
+            continue
+        lowered = text.lower()
+        score = sum(lowered.count(term) for term in terms)
+        candidates.append((score, lesson, text))
+
+    candidates.sort(key=lambda item: (item[0], -item[1].order), reverse=True)
+    selected = [item for item in candidates if item[0] > 0][:3] or candidates[:2]
+    if not selected:
+        return "I could not find course text to answer from yet. Try asking about a lesson after the instructor adds written material or a document."
+
+    sections = []
+    for _, lesson, text in selected:
+        clean = " ".join(text.split())
+        excerpt = clean[:1100]
+        if len(clean) > 1100:
+            excerpt += "…"
+        sections.append(f"Lesson {lesson.order}: {lesson.title}\n{excerpt}")
+    return "Here is the most relevant material I found in this course:\n\n" + "\n\n".join(sections)
+
+
 def ask_ai(question, course=None):
+    context = _course_context(course) if course else ""
     if not settings.GEMINI_API_KEY:
-        return "The course AI is ready in the platform but the AI service key has not been connected yet."
-    context = ""
-    if course:
-        lesson_text = "\n\n".join(
-            f"{lesson.title}: {lesson.body[:2500]}" for lesson in course.lessons.filter(published=True).exclude(body="")[:12]
-        )
-        context = f"Course: {course.title}\n{course.description}\n{lesson_text}\n\n"
+        return _course_lookup_answer(question, course)
+
     prompt = (
-        "You are the Acyberschool learning assistant. Answer clearly and practically. "
-        "Use the supplied course material when it is relevant. Do not invent course facts.\n\n"
-        f"{context}Student question: {question}"
+        "You are the Acyberschool learning assistant. Answer clearly, practically and concisely. "
+        "Use the supplied course material as the primary source. If the answer is not supported by the course material, say so. "
+        "Do not invent course facts or grades.\n\n"
+        f"{context}\n\nStudent question: {question}"
     )
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.GEMINI_MODEL}:generateContent?key={settings.GEMINI_API_KEY}"
     try:
@@ -150,4 +208,4 @@ def ask_ai(question, course=None):
         data = response.json()
         return data["candidates"][0]["content"]["parts"][0]["text"]
     except Exception:
-        return "The course AI could not respond just now. Please try again."
+        return _course_lookup_answer(question, course)
