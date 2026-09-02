@@ -1,0 +1,26 @@
+FROM python:3.14.6-slim-bookworm
+
+# Presentation conversion runs in this dedicated worker image, never in the
+# learner-facing LearnHouse web/API container. LibreOffice Impress pulls the
+# headless conversion runtime; common fonts keep slide layout predictable.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       libreoffice-impress \
+       fonts-dejavu-core \
+       fonts-liberation \
+       ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/*
+
+WORKDIR /app/api
+
+COPY ./apps/api/uv.lock ./apps/api/pyproject.toml ./
+RUN pip install --no-cache-dir --upgrade pip uv \
+    && uv sync --no-dev
+
+COPY ./apps/api ./
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    LEARNHOUSE_OFFICE_PREVIEW_ENABLED=true
+
+CMD ["uv", "run", "python", "-m", "src.services.media.office_preview"]
