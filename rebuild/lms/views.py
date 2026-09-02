@@ -1,12 +1,15 @@
 import secrets
 from datetime import timedelta
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
+from django.core.mail import send_mail
 from django.db.models import Avg
-from django.http import FileResponse, Http404, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -199,6 +202,7 @@ def invite(request, course_id):
     course = get_object_or_404(Course.objects.select_related("institution"), id=course_id)
     _require_staff(request.user, course.institution)
     invite_url = None
+    email_sent = False
     if request.method == "POST":
         email = request.POST.get("email", "").strip().lower()
         if email:
@@ -217,7 +221,37 @@ def invite(request, course_id):
                     expires_at=timezone.now() + timedelta(days=14),
                 )
                 invite_url = request.build_absolute_uri(reverse("join_invitation", args=[invitation.code]))
-    return render(request, "lms/invite.html", {"course": course, "invite_url": invite_url})
+                if settings.EMAIL_HOST:
+                    try:
+                        send_mail(
+                            subject=f"You are invited to {course.title} on Acyberschool",
+                            message=f"You have been invited to join {course.title} on Acyberschool.\n\nOpen this secure link to join:\n{invite_url}\n\nThis invitation expires in 14 days.",
+                            from_email=settings.DEFAULT_FROM_EMAIL,
+                            recipient_list=[email],
+                            fail_silently=False,
+                        )
+                        email_sent = True
+                    except Exception:
+                        messages.warning(request, "The invitation was created, but the email could not be sent. Copy the link below and send it to the student.")
+    return render(request, "lms/invite.html", {"course": course, "invite_url": invite_url, "email_sent": email_sent})
+
+
+@login_required
+def lesson_media(request, lesson_id, variant):
+    lesson = get_object_or_404(Lesson.objects.select_related("course", "course__institution"), id=lesson_id)
+    member = _membership(request.user, lesson.course.institution)
+    if not member:
+        raise Http404
+    if member.role == "student" and not Enrollment.objects.filter(course=lesson.course, student=request.user, active=True).exists():
+        raise Http404
+    field = lesson.rendered_file if variant == "rendered" else lesson.file
+    if not field:
+        raise Http404
+    response = HttpResponse()
+    response["X-Accel-Redirect"] = f"/protected-media/{field.name}"
+    response["Content-Disposition"] = f'inline; filename="{Path(field.name).name}"'
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 @login_required
@@ -357,6 +391,8 @@ def ai_assistant(request, course_id):
     course = get_object_or_404(Course, id=course_id)
     member = _membership(request.user, course.institution)
     if not member:
+        raise Http404
+    if member.role == "student" and not Enrollment.objects.filter(course=course, student=request.user, active=True).exists():
         raise Http404
     question = request.POST.get("question", "").strip()
     if not question:
