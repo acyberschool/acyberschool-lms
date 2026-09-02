@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="form-card">
+  <div class="eyebrow">Essay</div><h1 style="font-size:40px">{{ assignment.title }}</h1><p class="muted">{{ assignment.instructions }}</p>
+  {% if existing %}<div class="card" style="margin-bottom:18px">Submitted {{ existing.submitted_at|date:'d M Y H:i' }}{% if existing.score != None %}<br><strong>Score: {{ existing.score }}%</strong><p>{{ existing.feedback }}</p>{% else %}<br><span class="pill">Awaiting review</span>{% endif %}</div>{% endif %}
+  <form method="post" enctype="multipart/form-data" class="stack">{% csrf_token %}{{ form.as_p }}<button class="primary" type="submit">Submit work</button></form>
+</div>
+{% endblock %}

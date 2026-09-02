@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Analytics | {{ course.title }}{% endblock %}
+{% block content %}
+<section class="hero"><div><div class="eyebrow">Tutor analytics</div><h1>{{ course.title }}</h1><p>See learner progress, submissions and completion.</p></div><a class="button secondary" href="{% url 'course_manage' course.id %}">Back to course</a></section>
+<div class="kpi-grid">
+  <div class="kpi"><span class="muted">Students</span><strong>{{ rows|length }}</strong></div>
+  <div class="kpi"><span class="muted">Lessons</span><strong>{{ course.lessons.count }}</strong></div>
+  <div class="kpi"><span class="muted">Assignments</span><strong>{{ assignments.count }}</strong></div>
+  <div class="kpi"><span class="muted">Complete</span><strong>{{ complete_count }}</strong></div>
+</div>
+<h2 class="section-title">Learners</h2>
+<div class="table-wrap"><table><thead><tr><th>Learner</th><th>Progress</th><th>Average score</th><th>Submissions</th><th>Essays awaiting review</th><th>Status</th><th></th></tr></thead><tbody>
+{% for row in rows %}<tr><td><strong>{{ row.student.get_full_name|default:row.student.username }}</strong><br><span class="muted">{{ row.student.email }}</span></td><td>{{ row.progress }}%</td><td>{% if row.average_score != None %}{{ row.average_score|floatformat:1 }}%{% else %}—{% endif %}</td><td>{{ row.submitted }}</td><td>{{ row.pending_essays|length }}</td><td>{% if row.complete %}<span class="pill success">Complete</span>{% else %}<span class="pill">In progress</span>{% endif %}</td><td><a class="button ghost" href="{% url 'learner_detail' course.id row.student.id %}">Open learner</a>{% for submission in row.pending_essays %}<a class="button ghost" href="{% url 'grade_submission' submission.id %}">Review {{ submission.assignment.title }}</a>{% endfor %}</td></tr>{% empty %}<tr><td colspan="7">No students enrolled yet.</td></tr>{% endfor %}
+</tbody></table></div>
+{% endblock %}

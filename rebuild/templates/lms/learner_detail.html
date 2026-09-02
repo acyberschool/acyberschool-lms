@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}{{ student.get_full_name|default:student.username }} | {{ course.title }}{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <div class="eyebrow">Learner detail</div>
+    <h1>{{ student.get_full_name|default:student.username }}</h1>
+    <p>{{ student.email }} · {{ course.title }}</p>
+  </div>
+  <a class="button secondary" href="{% url 'course_analytics' course.id %}">Back to analytics</a>
+</section>
+
+<div class="kpi-grid">
+  <div class="kpi"><span class="muted">Lesson progress</span><strong>{{ progress }}%</strong></div>
+  <div class="kpi"><span class="muted">Course status</span><strong style="font-size:20px">{% if complete %}Complete{% else %}In progress{% endif %}</strong></div>
+  <div class="kpi"><span class="muted">Assignments</span><strong>{{ assignment_rows|length }}</strong></div>
+  <div class="kpi"><span class="muted">Portfolio entries</span><strong>{{ portfolio_entries|length }}</strong></div>
+</div>
+
+<h2 class="section-title">Lessons</h2>
+<div class="table-wrap"><table><thead><tr><th>Lesson</th><th>Status</th><th>Completed</th></tr></thead><tbody>
+{% for row in lesson_rows %}<tr><td>{{ row.lesson.order }}. {{ row.lesson.title }}</td><td>{% if row.completed %}<span class="pill success">Complete</span>{% else %}<span class="pill">Not complete</span>{% endif %}</td><td>{% if row.completed_at %}{{ row.completed_at|date:'d M Y H:i' }}{% else %}—{% endif %}</td></tr>{% empty %}<tr><td colspan="3">No published lessons.</td></tr>{% endfor %}
+</tbody></table></div>
+
+<h2 class="section-title">Assignments</h2>
+<div class="table-wrap"><table><thead><tr><th>Assignment</th><th>Type</th><th>Score</th><th>Status</th><th>Review</th></tr></thead><tbody>
+{% for row in assignment_rows %}<tr><td><strong>{{ row.assignment.title }}</strong></td><td>{{ row.assignment.get_assignment_type_display }}</td><td>{% if row.submission and row.submission.score != None %}{{ row.submission.score }}%{% else %}—{% endif %}</td><td>{% if not row.submission %}<span class="pill">Not submitted</span>{% elif row.submission.score == None %}<span class="pill">Awaiting grading</span>{% elif row.passed %}<span class="pill success">Passed</span>{% else %}<span class="pill">Below pass mark</span>{% endif %}</td><td>{% if row.submission and row.assignment.assignment_type == 'essay' %}<a class="button ghost" href="{% url 'grade_submission' row.submission.id %}">Open submission</a>{% else %}—{% endif %}</td></tr>{% empty %}<tr><td colspan="5">No published assignments.</td></tr>{% endfor %}
+</tbody></table></div>
+
+<h2 class="section-title">Portfolio</h2>
+<div class="stack">
+{% for entry in portfolio_entries %}
+  <article class="card">
+    <div class="eyebrow">{{ entry.updated_at|date:'d M Y' }}</div>
+    <h3>{{ entry.title }}</h3>
+    <div class="prose">{{ entry.reflection }}</div>
+    <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-top:16px">
+      {% if entry.evidence_file %}<a class="button secondary" href="{% url 'portfolio_evidence' entry.id %}" target="_blank">Open evidence</a>{% endif %}
+      {% if entry.evidence_url %}<a class="button secondary" href="{{ entry.evidence_url }}" target="_blank" rel="noopener noreferrer">Open link</a>{% endif %}
+    </div>
+  </article>
+{% empty %}<div class="empty">No portfolio entries yet.</div>{% endfor %}
+</div>
+{% endblock %}

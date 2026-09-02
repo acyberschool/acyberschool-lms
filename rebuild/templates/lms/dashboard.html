@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Classroom | Acyberschool{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <div class="eyebrow">Classroom</div>
+    <h1>Hello {{ user.first_name|default:user.username }}</h1>
+    <p>Continue where you left off.</p>
+  </div>
+  {% if can_manage %}<a class="button" href="{% url 'course_create' %}">Create course</a>{% endif %}
+</section>
+
+{% if student_cards %}
+<h2 class="section-title">Your learning</h2>
+<div class="grid">
+  {% for card in student_cards %}
+  <article class="card">
+    {% if card.enrollment.course.thumbnail %}<img class="course-thumb" src="{{ card.enrollment.course.thumbnail.url }}" alt="">{% else %}<div class="course-thumb"></div>{% endif %}
+    <div class="pill">{{ card.enrollment.course.institution.name }}</div>
+    <h3>{{ card.enrollment.course.title }}</h3>
+    <p class="muted">{{ card.enrollment.course.description|truncatewords:24 }}</p>
+    <div class="row"><span class="muted">Progress</span><strong>{{ card.progress }}%</strong></div>
+    <div class="progress"><span style="width:{{ card.progress }}%"></span></div>
+    <div style="margin-top:16px"><a class="button" href="{% url 'course_player' card.enrollment.course.id %}">Open course</a></div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if staff_courses %}
+<h2 class="section-title">Courses you manage</h2>
+<div class="grid">
+  {% for course in staff_courses %}
+  <article class="card">
+    {% if course.thumbnail %}<img class="course-thumb" src="{{ course.thumbnail.url }}" alt="">{% else %}<div class="course-thumb"></div>{% endif %}
+    <div class="row"><span class="pill">{{ course.institution.name }}</span>{% if course.published %}<span class="pill success">Published</span>{% endif %}</div>
+    <h3>{{ course.title }}</h3>
+    <p class="muted">{{ course.description|truncatewords:20 }}</p>
+    <div class="row">
+      <a class="button secondary" href="{% url 'course_manage' course.id %}">Manage</a>
+      <a class="button ghost" href="{% url 'course_analytics' course.id %}">Analytics</a>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% elif can_manage %}
+<h2 class="section-title">Courses you manage</h2>
+<div class="empty">Create your first course. Add the content, publish it, then invite students.</div>
+{% endif %}
+
+{% if not student_cards and not can_manage %}
+<div class="empty">No courses yet.</div>
+{% endif %}
+{% endblock %}

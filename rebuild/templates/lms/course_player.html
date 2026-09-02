@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}{{ course.title }} | Acyberschool{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <div class="eyebrow">{{ course.institution.name }}</div>
+    <h1>{{ course.title }}</h1>
+    <p>{{ course.description }}</p>
+    {% if member.role != 'student' and not course.published %}<span class="pill">Instructor preview · Draft course</span>{% endif %}
+  </div>
+  {% if member.role == 'student' %}<div style="min-width:220px"><div class="row"><span class="muted">Lessons complete</span><strong>{{ progress }}%</strong></div><div class="progress"><span style="width:{{ progress }}%"></span></div></div>{% endif %}
+</section>
+
+<div class="course-layout">
+  <aside class="course-sidebar card">
+    <strong>Course</strong>
+    <div style="margin-top:12px">
+      {% for lesson in lessons %}<a class="lesson-link" href="#lesson-{{ lesson.id }}">{{ lesson.order }}. {{ lesson.title }} {% if lesson.id in completed_ids %}<span class="lesson-complete">✓</span>{% endif %}</a>{% endfor %}
+    </div>
+    {% if assignment_rows %}
+      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+      <strong>Assignments</strong>
+      {% for row in assignment_rows %}
+        {% if member.role == 'student' %}
+          <a class="lesson-link" href="{% url 'assignment_take' row.assignment.id %}">{{ row.assignment.title }}{% if row.status.state == 'passed' %} <span class="lesson-complete">✓</span>{% endif %}</a>
+        {% else %}
+          <span class="lesson-link">{{ row.assignment.title }}</span>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% if course_complete %}<hr style="border:0;border-top:1px solid var(--line);margin:18px 0"><a class="button" href="{% url 'certificate_download' course.id %}">Get certificate</a>{% endif %}
+  </aside>
+
+  <div class="stack">
+    {% for lesson in lessons %}
+    <section id="lesson-{{ lesson.id }}" class="content-panel">
+      <div class="row"><div><div class="eyebrow">Lesson {{ lesson.order }}</div><h2>{{ lesson.title }}</h2></div><span class="pill">{{ lesson.get_content_type_display }}</span></div>
+      {% if lesson.content_type == 'text' %}<div class="prose">{{ lesson.body }}</div>{% endif %}
+      {% if lesson.content_type == 'video' and lesson.file %}<video controls controlsList="nodownload" preload="metadata"><source src="{% url 'lesson_media' lesson.id 'source' %}"></video>{% endif %}
+      {% if lesson.content_type == 'audio' and lesson.file %}<audio controls controlsList="nodownload"><source src="{% url 'lesson_media' lesson.id 'source' %}"></audio>{% endif %}
+      {% if lesson.content_type == 'image' and lesson.file %}<img src="{% url 'lesson_media' lesson.id 'source' %}" alt="{{ lesson.title }}">{% endif %}
+      {% if lesson.content_type == 'pdf' and lesson.file %}<iframe src="{% url 'lesson_media' lesson.id 'source' %}#toolbar=0" title="{{ lesson.title }}"></iframe>{% endif %}
+      {% if lesson.content_type == 'office' %}{% if lesson.rendered_file %}<iframe src="{% url 'lesson_media' lesson.id 'rendered' %}#toolbar=0" title="{{ lesson.title }}"></iframe>{% else %}<p class="muted">This document is being prepared for browser viewing.</p>{% endif %}{% endif %}
+      {% if lesson.content_type == 'link' and lesson.external_url %}<p><a class="button secondary" href="{{ lesson.external_url }}" target="_blank" rel="noopener noreferrer">Open learning resource</a></p>{% endif %}
+      {% if lesson.body and lesson.content_type != 'text' %}<div class="prose" style="margin-top:20px">{{ lesson.body }}</div>{% endif %}
+      {% if member.role == 'student' %}
+        {% if lesson.id in completed_ids %}<div class="pill success" style="margin-top:18px">Completed</div>{% else %}<form method="post" action="{% url 'lesson_complete' lesson.id %}" style="margin-top:20px">{% csrf_token %}<button class="primary">Mark complete</button></form>{% endif %}
+      {% endif %}
+    </section>
+    {% empty %}<div class="empty">Course content is being added.</div>{% endfor %}
+
+    {% if assignment_rows %}
+    <section class="content-panel">
+      <div class="eyebrow">Assignments</div>
+      <h2>Apply what you learned</h2>
+      <div class="stack">
+        {% for row in assignment_rows %}
+        <div class="card">
+          <div class="row" style="align-items:flex-start;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-bottom:8px">
+                <span class="pill">{{ row.assignment.get_assignment_type_display }}</span>
+                {% if row.assignment.required %}<span class="pill">Required</span>{% endif %}
+                {% if member.role == 'student' %}
+                  {% if row.status.state == 'passed' %}<span class="pill success">Passed</span>{% else %}<span class="pill">{{ row.status.label }}</span>{% endif %}
+                {% endif %}
+              </div>
+              <h3>{{ row.assignment.title }}</h3>
+              <p class="muted">{{ row.assignment.instructions|truncatewords:32 }}</p>
+              {% if member.role == 'student' and row.status.score != None %}<p><strong>Score {{ row.status.score }}%</strong> · Pass mark {{ row.assignment.pass_mark }}%</p>{% endif %}
+              {% if member.role == 'student' and row.status.submission and row.status.submission.feedback %}<div class="prose"><strong>Instructor feedback</strong><br>{{ row.status.submission.feedback }}</div>{% endif %}
+            </div>
+            {% if member.role == 'student' %}<a class="button secondary" href="{% url 'assignment_take' row.assignment.id %}">{% if row.status.state == 'not_started' %}Start{% elif row.status.state == 'retry' %}Try again{% else %}Open{% endif %}</a>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% if member.role == 'student' and progress == 100 and not course_complete %}<p class="muted" style="margin-top:18px">Your lessons are complete. Finish and pass every required assignment to unlock your certificate.</p>{% endif %}
+    </section>
+    {% endif %}
+
+    <section class="ai-box">
+      <div class="eyebrow" style="color:#ff7aa8">Acyberschool AI</div><h2>Ask about this course</h2>
+      <form id="ai-form" method="post" action="{% url 'ai_assistant' course.id %}">{% csrf_token %}<textarea id="ai-question" name="question" rows="4" placeholder="Ask a question about the course"></textarea><button class="primary" type="submit" style="margin-top:10px">Ask AI</button></form>
+      <div id="ai-answer" class="ai-answer"></div>
+    </section>
+  </div>
+</div>
+<script>
+const aiForm=document.getElementById('ai-form');
+aiForm.addEventListener('submit',async(e)=>{e.preventDefault();const answer=document.getElementById('ai-answer');answer.textContent='Thinking…';const data=new FormData(aiForm);try{const r=await fetch(aiForm.action,{method:'POST',body:data,headers:{'X-CSRFToken':data.get('csrfmiddlewaretoken')}});const j=await r.json();answer.textContent=j.answer||'No response.'}catch(err){answer.textContent='The course AI could not respond just now.'}});
+</script>
+{% endblock %}

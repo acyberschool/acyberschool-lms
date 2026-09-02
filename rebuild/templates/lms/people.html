@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}People | Acyberschool{% endblock %}
+{% block content %}
+<section class="hero">
+  <div><div class="eyebrow">People</div><h1>{{ institution.name }}</h1><p>Invite instructors and see who is already in the classroom.</p></div>
+</section>
+
+<div class="course-layout">
+  <section class="form-card" style="margin:0;max-width:none">
+    <div class="eyebrow">Invite instructor</div>
+    <h2>Bring someone in to teach</h2>
+    <form method="post" class="stack">
+      {% csrf_token %}
+      <label for="email"><strong>Email address</strong></label>
+      <input id="email" name="email" type="email" required placeholder="instructor@example.com">
+      <button class="primary" type="submit">Create invitation</button>
+    </form>
+    {% if invite_url %}
+      <div class="card" style="margin-top:20px">
+        {% if email_sent %}<span class="pill success">Email sent</span>{% else %}<span class="pill">Copy this link</span>{% endif %}
+        <p style="word-break:break-all">{{ invite_url }}</p>
+      </div>
+    {% endif %}
+  </section>
+
+  <section>
+    <h2 style="margin-top:0">Current people</h2>
+    <div class="stack">
+      {% for member in members %}
+        <article class="card row">
+          <div><h3>{{ member.user.get_full_name|default:member.user.username }}</h3><p class="muted">{{ member.user.email }}</p></div>
+          <span class="pill{% if member.role == 'admin' %} success{% endif %}">{{ member.get_role_display }}</span>
+        </article>
+      {% empty %}<div class="empty">No members yet.</div>{% endfor %}
+    </div>
+
+    {% if pending %}
+      <h2 class="section-title">Pending instructor invitations</h2>
+      <div class="stack">
+        {% for invitation in pending %}<article class="card row"><div><strong>{{ invitation.email }}</strong><p class="muted">Expires {{ invitation.expires_at|date:'d M Y' }}</p></div><span class="pill">Pending</span></article>{% endfor %}
+      </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

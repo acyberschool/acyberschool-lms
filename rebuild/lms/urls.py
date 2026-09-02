@@ -1,0 +1,33 @@
+from django.urls import path
+from . import analytics_views, manage_views, media_views, people_views, student_views, views
+
+urlpatterns = [
+    path("", views.home, name="home"),
+    path("dashboard/", views.dashboard, name="dashboard"),
+    path("people/", people_views.people, name="people"),
+    path("courses/new/", manage_views.course_create, name="course_create"),
+    path("courses/<int:course_id>/manage/", views.course_manage, name="course_manage"),
+    path("courses/<int:course_id>/edit/", manage_views.course_edit, name="course_edit"),
+    path("courses/<int:course_id>/publish-toggle/", manage_views.course_publish_toggle, name="course_publish_toggle"),
+    path("courses/<int:course_id>/lessons/new/", views.lesson_create, name="lesson_create"),
+    path("lessons/<int:lesson_id>/edit/", manage_views.lesson_edit, name="lesson_edit"),
+    path("lessons/<int:lesson_id>/delete/", manage_views.lesson_delete, name="lesson_delete"),
+    path("lessons/<int:lesson_id>/move/<str:direction>/", manage_views.lesson_move, name="lesson_move"),
+    path("lessons/<int:lesson_id>/media/<str:variant>/", views.lesson_media, name="lesson_media"),
+    path("lessons/<int:lesson_id>/complete/", views.lesson_complete, name="lesson_complete"),
+    path("courses/<int:course_id>/assignments/new/", views.assignment_create, name="assignment_create"),
+    path("assignments/<int:assignment_id>/edit/", manage_views.assignment_edit, name="assignment_edit"),
+    path("assignments/<int:assignment_id>/delete/", manage_views.assignment_delete, name="assignment_delete"),
+    path("assignments/<int:assignment_id>/questions/new/", views.question_create, name="question_create"),
+    path("assignments/<int:assignment_id>/take/", views.assignment_take, name="assignment_take"),
+    path("submissions/<int:submission_id>/grade/", views.grade_submission, name="grade_submission"),
+    path("submissions/<int:submission_id>/attachment/", media_views.submission_attachment, name="submission_attachment"),
+    path("courses/<int:course_id>/invite/", views.invite, name="invite"),
+    path("courses/<int:course_id>/learn/", student_views.course_player, name="course_player"),
+    path("portfolio/", views.portfolio, name="portfolio"),
+    path("portfolio/<int:entry_id>/evidence/", media_views.portfolio_evidence, name="portfolio_evidence"),
+    path("courses/<int:course_id>/analytics/", views.course_analytics, name="course_analytics"),
+    path("courses/<int:course_id>/learners/<int:student_id>/", analytics_views.learner_detail, name="learner_detail"),
+    path("courses/<int:course_id>/ai/", views.ai_assistant, name="ai_assistant"),
+    path("courses/<int:course_id>/certificate/", views.certificate_download, name="certificate_download"),
+]

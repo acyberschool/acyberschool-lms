@@ -1,0 +1,59 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: acyberschool-clean-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: acyberschool
+      POSTGRES_USER: acyberschool
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-acyberschool-local-db}
+    volumes:
+      - acyberschool_clean_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U acyberschool -d acyberschool"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web:
+    build: .
+    container_name: acyberschool-clean-web
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: acyberschool
+      POSTGRES_USER: acyberschool
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-acyberschool-local-db}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-local-clean-rebuild-secret-change-before-production}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,classroom.acyberschool.com}
+      DJANGO_CSRF_TRUSTED_ORIGINS: ${DJANGO_CSRF_TRUSTED_ORIGINS:-http://localhost:8095,http://127.0.0.1:8095,https://classroom.acyberschool.com}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ACYBERSCHOOL_PUBLIC_URL: ${ACYBERSCHOOL_PUBLIC_URL:-http://127.0.0.1:8095}
+      ACYBERSCHOOL_ADMIN_EMAIL: ${ACYBERSCHOOL_ADMIN_EMAIL:-admin@acyberschool.com}
+      ACYBERSCHOOL_ADMIN_PASSWORD: ${ACYBERSCHOOL_ADMIN_PASSWORD:-ChangeMeNow123!}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      TIME_ZONE: Africa/Nairobi
+    volumes:
+      - acyberschool_clean_media:/app/media
+      - acyberschool_clean_static:/app/staticfiles
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: acyberschool-clean-nginx
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "127.0.0.1:8095:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - acyberschool_clean_media:/srv/media:ro
+      - acyberschool_clean_static:/srv/static:ro
+
+volumes:
+  acyberschool_clean_db:
+  acyberschool_clean_media:
+  acyberschool_clean_static:

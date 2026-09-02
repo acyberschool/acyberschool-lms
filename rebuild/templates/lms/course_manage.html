@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Manage {{ course.title }} | Acyberschool{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <div class="eyebrow">Course management</div>
+    <h1>{{ course.title }}</h1>
+    <p>{{ course.description }}</p>
+    <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-top:12px">
+      {% if course.published %}<span class="pill success">Published</span>{% else %}<span class="pill">Draft</span>{% endif %}
+      <span class="pill">{{ lessons|length }} lesson{{ lessons|length|pluralize }}</span>
+      <span class="pill">{{ assignments|length }} assignment{{ assignments|length|pluralize }}</span>
+    </div>
+  </div>
+  <div class="stack" style="min-width:190px">
+    <a class="button" href="{% url 'lesson_create' course.id %}">Add lesson</a>
+    <a class="button secondary" href="{% url 'assignment_create' course.id %}">Add assignment</a>
+  </div>
+</section>
+
+<div class="row" style="justify-content:flex-start;align-items:stretch;flex-wrap:wrap;margin-bottom:26px">
+  <a class="button secondary" href="{% url 'course_edit' course.id %}">Edit course</a>
+  <a class="button secondary" href="{% url 'invite' course.id %}">Invite students</a>
+  <a class="button secondary" href="{% url 'course_player' course.id %}">Preview as classroom</a>
+  <a class="button secondary" href="{% url 'course_analytics' course.id %}">Tutor analytics</a>
+  <form method="post" action="{% url 'course_publish_toggle' course.id %}" class="inline-form">
+    {% csrf_token %}
+    <button class="primary" type="submit">{% if course.published %}Move to draft{% else %}Publish course{% endif %}</button>
+  </form>
+</div>
+
+<h2 class="section-title">Lessons</h2>
+{% if lessons %}
+<div class="stack">
+  {% for lesson in lessons %}
+  <div class="card">
+    <div class="row" style="align-items:flex-start;flex-wrap:wrap">
+      <div style="min-width:220px;flex:1">
+        <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-bottom:8px">
+          <span class="pill">{{ lesson.get_content_type_display }}</span>
+          {% if lesson.published %}<span class="pill success">Published</span>{% else %}<span class="pill">Draft</span>{% endif %}
+        </div>
+        <h3>{{ lesson.order }}. {{ lesson.title }}</h3>
+        {% if lesson.body %}<p class="muted">{{ lesson.body|truncatechars:140 }}</p>{% endif %}
+      </div>
+      <div class="row" style="justify-content:flex-end;flex-wrap:wrap">
+        <form method="post" action="{% url 'lesson_move' lesson.id 'up' %}" class="inline-form">{% csrf_token %}<button class="button secondary" type="submit">Up</button></form>
+        <form method="post" action="{% url 'lesson_move' lesson.id 'down' %}" class="inline-form">{% csrf_token %}<button class="button secondary" type="submit">Down</button></form>
+        <a class="button secondary" href="{% url 'lesson_edit' lesson.id %}">Edit</a>
+        <form method="post" action="{% url 'lesson_delete' lesson.id %}" class="inline-form" onsubmit="return confirm('Remove this lesson?');">
+          {% csrf_token %}
+          <button class="button secondary" type="submit">Remove</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="empty">Add the first lesson.</div>{% endif %}
+
+<h2 class="section-title">Assignments</h2>
+{% if assignments %}
+<div class="stack">
+  {% for assignment in assignments %}
+  <div class="card">
+    <div class="row" style="align-items:flex-start;flex-wrap:wrap">
+      <div style="min-width:220px;flex:1">
+        <div class="row" style="justify-content:flex-start;flex-wrap:wrap;margin-bottom:8px">
+          <span class="pill">{{ assignment.get_assignment_type_display }}</span>
+          {% if assignment.published %}<span class="pill success">Published</span>{% else %}<span class="pill">Draft</span>{% endif %}
+          {% if assignment.required %}<span class="pill">Required</span>{% endif %}
+        </div>
+        <h3>{{ assignment.title }}</h3>
+        <p class="muted">Pass mark {{ assignment.pass_mark }}%{% if assignment.due_at %} · Due {{ assignment.due_at }}{% endif %}</p>
+      </div>
+      <div class="row" style="justify-content:flex-end;flex-wrap:wrap">
+        {% if assignment.assignment_type == 'quiz' %}<a class="button secondary" href="{% url 'question_create' assignment.id %}">Questions</a>{% endif %}
+        <a class="button secondary" href="{% url 'assignment_edit' assignment.id %}">Edit</a>
+        <form method="post" action="{% url 'assignment_delete' assignment.id %}" class="inline-form" onsubmit="return confirm('Remove this assignment and its submissions?');">
+          {% csrf_token %}
+          <button class="button secondary" type="submit">Remove</button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}<div class="empty">No assignments yet.</div>{% endif %}
+{% endblock %}

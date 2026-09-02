@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="form-card">
+  <div class="eyebrow">Quiz</div><h1 style="font-size:40px">{{ assignment.title }}</h1><p class="muted">{{ assignment.instructions }}</p>
+  {% if existing and existing.score != None %}<div class="card" style="margin-bottom:20px"><strong>Score: {{ existing.score }}%</strong>{% if existing.score >= assignment.pass_mark %}<span class="pill success" style="margin-left:10px">Passed</span>{% else %}<span class="pill" style="margin-left:10px">Pass mark {{ assignment.pass_mark }}%</span>{% endif %}</div>{% endif %}
+  <form method="post" class="stack">{% csrf_token %}
+    {% for question in assignment.questions.all %}
+    <div class="card"><strong>{{ forloop.counter }}. {{ question.text }}</strong>
+      {% for choice in question.choices %}<label class="quiz-choice"><input type="radio" name="q_{{ question.id }}" value="{{ forloop.counter0 }}" required><span>{{ choice }}</span></label>{% endfor %}
+    </div>
+    {% empty %}<div class="empty">No questions have been added yet.</div>{% endfor %}
+    {% if assignment.questions.all %}<button class="primary" type="submit">Submit quiz</button>{% endif %}
+  </form>
+</div>
+{% endblock %}

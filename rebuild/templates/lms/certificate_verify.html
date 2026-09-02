@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Certificate verification | Acyberschool{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card" style="width:min(620px,94vw)">
+    <div class="eyebrow">Certificate verification</div>
+    {% if valid %}
+      <h1 style="font-size:40px">Verified</h1>
+      <p class="muted">This certificate was issued by Acyberschool.</p>
+      <div class="card stack" style="margin-top:22px">
+        <div><span class="muted">Learner</span><h3>{{ certificate.student.get_full_name|default:certificate.student.username }}</h3></div>
+        <div><span class="muted">Course</span><h3>{{ certificate.course.title }}</h3></div>
+        <div><span class="muted">Institution</span><h3>{{ certificate.course.institution.name }}</h3></div>
+        <div><span class="muted">Issued</span><h3>{{ certificate.issued_at|date:'d F Y' }}</h3></div>
+        <div><span class="muted">Certificate ID</span><h3 style="word-break:break-all">{{ certificate.certificate_id }}</h3></div>
+      </div>
+    {% else %}
+      <h1 style="font-size:40px">Not verified</h1>
+      <p class="muted">No Acyberschool certificate was found with ID <strong>{{ certificate_id }}</strong>.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

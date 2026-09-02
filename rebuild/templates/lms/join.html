@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="eyebrow">Invitation</div>
+    <h1 style="font-size:38px">Join {{ invitation.institution.name }}</h1>
+    {% if invitation.course %}<p class="muted">You have been invited to {{ invitation.course.title }} as {{ invitation.get_role_display }}.</p>{% endif %}
+    <p><strong>{{ invitation.email }}</strong></p>
+    <form method="post" class="stack">{% csrf_token %}{{ form.as_p }}<button class="primary" type="submit">Create account and join</button></form>
+  </div>
+</div>
+{% endblock %}

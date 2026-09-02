@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="form-card">
+  <div class="eyebrow">Review submission</div><h1 style="font-size:38px">{{ submission.assignment.title }}</h1>
+  <p><strong>{{ submission.student.get_full_name|default:submission.student.username }}</strong></p>
+  {% if submission.essay_text %}<div class="card prose">{{ submission.essay_text }}</div>{% endif %}
+  {% if submission.attachment %}<p><a class="button secondary" href="{% url 'submission_attachment' submission.id %}" target="_blank">Open attachment</a></p>{% endif %}
+  <form method="post" class="stack">{% csrf_token %}{{ form.as_p }}<button class="primary" type="submit">Save grade</button></form>
+</div>
+{% endblock %}
